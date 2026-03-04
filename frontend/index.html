@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EVNTLY — Book Extraordinary Spaces</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="evntly.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════
+     NAVBAR
+     ══════════════════════════════════════════════════════════════ -->
+<nav>
+  <div class="nav-logo" onclick="scrollToTop()">EVNTLY<span>.</span></div>
+  <div class="nav-links">
+    <a onclick="scrollToVenues()">Venues</a>
+    <a onclick="scrollToFacilities()">Facilities</a>
+    <a onclick="scrollToOwner()">List Space</a>
+    <a onclick="scrollToReviews()">Reviews</a>
+  </div>
+  <div class="nav-btns">
+    <div class="api-status checking" id="api-status"><div class="api-dot"></div><span>Checking…</span></div>
+    <button class="btn-ghost" id="nav-login-btn" onclick="openModal('auth-modal')">Sign In</button>
+    <button class="btn-primary" id="nav-dash-btn" style="display:none" onclick="showDashboard()">Dashboard</button>
+    <button class="nav-hamburger" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
+  </div>
+</nav>
+
+<!-- Mobile nav menu -->
+<div class="nav-mobile-menu" id="nav-mobile-menu">
+  <a onclick="scrollToVenues();closeMobileMenu()">🏛️ Venues</a>
+  <a onclick="scrollToFacilities();closeMobileMenu()">✨ Facilities</a>
+  <a onclick="scrollToOwner();closeMobileMenu()">🏠 List Your Space</a>
+  <a onclick="scrollToReviews();closeMobileMenu()">⭐ Reviews</a>
+  <a onclick="openModal('auth-modal');closeMobileMenu()" id="mobile-login-link">Sign In / Register</a>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     HERO
+     ══════════════════════════════════════════════════════════════ -->
+<section class="hero" id="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-badge">Premium Venue Booking Platform</div>
+  <h1>Find Your Perfect<br><em>Event Space</em></h1>
+  <p>From intimate gatherings to grand celebrations, discover and book extraordinary spaces across India — effortlessly.</p>
+  <div class="hero-actions">
+    <button class="btn-cta" onclick="scrollToVenues()">Browse Venues →</button>
+    <button class="btn-outline" onclick="scrollToOwner()">List Your Space</button>
+  </div>
+  <div class="hero-stats">
+    <div class="stat"><div class="stat-num" id="stat-venues">200+</div><div class="stat-label">Venues</div></div>
+    <div class="stat"><div class="stat-num">50K+</div><div class="stat-label">Events</div></div>
+    <div class="stat"><div class="stat-num">4.9★</div><div class="stat-label">Rating</div></div>
+  </div>
+  <div class="scroll-line"></div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SEARCH
+     ══════════════════════════════════════════════════════════════ -->
+<section class="search-section">
+  <div class="search-card">
+    <div class="search-field">
+      <label>Venue Name</label>
+      <input class="sf-input" type="text" id="search-name" placeholder="Grand ballroom…" />
+    </div>
+    <div class="search-field">
+      <label>Location</label>
+      <input class="sf-input" type="text" id="search-loc" placeholder="Mumbai, Delhi…" />
+    </div>
+    <div class="search-field">
+      <label>Date</label>
+      <input class="sf-input" type="date" id="search-date" />
+    </div>
+    <div class="search-field">
+      <label>Min Guests</label>
+      <input class="sf-input" type="number" id="search-guests" placeholder="50" min="1" />
+    </div>
+    <button class="btn-search" onclick="searchVenues()">Search Venues</button>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     VENUES
+     ══════════════════════════════════════════════════════════════ -->
+<section class="section" id="venues-section">
+  <div class="section-header">
+    <div class="section-tag">Featured Spaces</div>
+    <h2 class="section-title">Discover Premium Venues</h2>
+    <p class="section-subtitle">From intimate gatherings to grand celebrations, find your perfect setting.</p>
+  </div>
+  <div class="venues-grid" id="venues-grid">
+    <div class="skeleton-card"><div class="skeleton skeleton-img"></div><div class="skeleton-body"><div class="skeleton skeleton-line medium"></div><div class="skeleton skeleton-line short" style="margin-top:8px"></div><div class="skeleton skeleton-line full" style="margin-top:16px"></div></div></div>
+    <div class="skeleton-card"><div class="skeleton skeleton-img"></div><div class="skeleton-body"><div class="skeleton skeleton-line medium"></div><div class="skeleton skeleton-line short" style="margin-top:8px"></div><div class="skeleton skeleton-line full" style="margin-top:16px"></div></div></div>
+    <div class="skeleton-card"><div class="skeleton skeleton-img"></div><div class="skeleton-body"><div class="skeleton skeleton-line medium"></div><div class="skeleton skeleton-line short" style="margin-top:8px"></div><div class="skeleton skeleton-line full" style="margin-top:16px"></div></div></div>
+    <div class="skeleton-card"><div class="skeleton skeleton-img"></div><div class="skeleton-body"><div class="skeleton skeleton-line medium"></div><div class="skeleton skeleton-line short" style="margin-top:8px"></div><div class="skeleton skeleton-line full" style="margin-top:16px"></div></div></div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     FACILITIES
+     ══════════════════════════════════════════════════════════════ -->
+<section class="section" id="facilities-section" style="background:var(--card-bg);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="section-header">
+    <div class="section-tag">Add-on Services</div>
+    <h2 class="section-title">Everything You Need</h2>
+    <p class="section-subtitle">Premium facilities available at every EVNTLY-listed venue.</p>
+  </div>
+  <div class="facilities-grid">
+    <div class="facility-card"><div class="facility-icon">🎤</div><div class="facility-name">Sound System</div><div class="facility-desc">Professional audio equipment for any event size</div></div>
+    <div class="facility-card"><div class="facility-icon">💡</div><div class="facility-name">Stage Lighting</div><div class="facility-desc">Dynamic lighting setups to set the mood</div></div>
+    <div class="facility-card"><div class="facility-icon">📽️</div><div class="facility-name">AV / Projector</div><div class="facility-desc">HD projection and presentation equipment</div></div>
+    <div class="facility-card"><div class="facility-icon">🍽️</div><div class="facility-name">Catering</div><div class="facility-desc">Curated menus from partner restaurants</div></div>
+    <div class="facility-card"><div class="facility-icon">🌸</div><div class="facility-name">Floral Décor</div><div class="facility-desc">Elegant floral arrangements for every theme</div></div>
+    <div class="facility-card"><div class="facility-icon">📸</div><div class="facility-name">Photography</div><div class="facility-desc">Professional photographers to capture memories</div></div>
+    <div class="facility-card"><div class="facility-icon">🚗</div><div class="facility-name">Valet Parking</div><div class="facility-desc">Seamless parking management for guests</div></div>
+    <div class="facility-card"><div class="facility-icon">🔐</div><div class="facility-name">Security</div><div class="facility-desc">Trained personnel for safe, managed events</div></div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     OWNER SECTION
+     ══════════════════════════════════════════════════════════════ -->
+<section class="owner-section" id="owner-section">
+  <div class="owner-grid">
+    <div>
+      <div class="section-tag">For Venue Owners</div>
+      <h2 class="section-title">Turn Your Space Into a Thriving Business</h2>
+      <p class="section-subtitle" style="margin-top:16px">Join hundreds of venue owners who trust EVNTLY to fill their calendars and grow their revenue.</p>
+      <div class="owner-steps">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>List Your Venue</h4><p>Add your space in minutes — photos, pricing, availability, and amenities.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Receive Bookings</h4><p>Get notified instantly when customers book. Approve or decline from your dashboard.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Earn Revenue</h4><p>Track earnings, manage slots, and grow your venue business effortlessly.</p></div></div>
+      </div>
+    </div>
+    <div class="owner-form-card">
+      <h3>Register as a Venue Owner</h3>
+      <div class="df-group"><label class="dark-label">Full Name *</label><input class="dark-field" type="text" id="ow-name" placeholder="Your name" /></div>
+      <div class="df-group"><label class="dark-label">Email *</label><input class="dark-field" type="email" id="ow-email" placeholder="you@example.com" /></div>
+      <div class="df-group"><label class="dark-label">Password *</label><input class="dark-field" type="password" id="ow-password" placeholder="••••••••" /></div>
+      <div class="df-group"><label class="dark-label">Phone</label><input class="dark-field" type="tel" id="ow-phone" placeholder="+91 98765 43210" /></div>
+      <button class="btn-cta" style="width:100%;margin-top:8px" onclick="registerOwner()">Get Started →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     REVIEWS
+     ══════════════════════════════════════════════════════════════ -->
+<section class="section" id="reviews-section">
+  <div class="section-header">
+    <div class="section-tag">Testimonials</div>
+    <h2 class="section-title">Loved by Thousands</h2>
+    <p class="section-subtitle">Real reviews from real EVNTLY customers.</p>
+  </div>
+  <div class="testimonials-grid" id="reviews-grid">
+    <!-- Static starter reviews — DB reviews are appended by JS -->
+    <div class="testimonial-card"><div class="stars">★★★★★</div><p class="testimonial-text">Absolutely stunning venue — the team made our wedding day flawless. Every detail was perfect!</p><div class="testimonial-author"><div class="author-avatar">💑</div><div><div class="author-name">Priya & Arjun</div><div class="author-role">Wedding Ceremony</div></div></div></div>
+    <div class="testimonial-card"><div class="stars">★★★★★</div><p class="testimonial-text">Our corporate conference exceeded all expectations. The AV setup and catering were impeccable.</p><div class="testimonial-author"><div class="author-avatar">💼</div><div><div class="author-name">Rohit Sharma</div><div class="author-role">Corporate Event</div></div></div></div>
+    <div class="testimonial-card"><div class="stars">★★★★★</div><p class="testimonial-text">Found the perfect rooftop venue for my birthday. The booking process was so smooth!</p><div class="testimonial-author"><div class="author-avatar">🎂</div><div><div class="author-name">Sneha Patel</div><div class="author-role">Birthday Celebration</div></div></div></div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     FOOTER
+     ══════════════════════════════════════════════════════════════ -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="nav-logo">EVNTLY<span>.</span></div>
+      <p>Premium venue booking platform connecting event planners with extraordinary spaces across India.</p>
+    </div>
+    <div class="footer-col"><h5>Platform</h5><a onclick="scrollToVenues()">Browse Venues</a><a onclick="scrollToFacilities()">Facilities</a><a onclick="scrollToOwner()">List Space</a><a onclick="scrollToReviews()">Reviews</a></div>
+    <div class="footer-col"><h5>Support</h5><a>Help Center</a><a>Contact Us</a><a>Refund Policy</a></div>
+    <div class="footer-col"><h5>Legal</h5><a>Privacy Policy</a><a>Terms of Service</a><a>Cookie Policy</a></div>
+  </div>
+  <div class="footer-bottom"><p>© 2025 EVNTLY. All rights reserved.</p><p>Made with ♥ for extraordinary events</p></div>
+</footer>
+
+<!-- ══════════════════════════════════════════════════════════════
+     DASHBOARD
+     ══════════════════════════════════════════════════════════════ -->
+<div class="dashboard" id="dashboard">
+  <div class="dash-sidebar">
+    <div class="dash-sidebar-role" id="sidebar-role-label">Dashboard</div>
+
+    <!-- COMMON -->
+    <div class="sidebar-item active" id="nav-overview" onclick="switchPanel('overview',this)">📊 Overview</div>
+    <div class="sidebar-item customer-only" id="nav-bookings" onclick="switchPanel('bookings',this)">📅 My Bookings</div>
+    <div class="sidebar-item customer-only" id="nav-reviews" onclick="switchPanel('my-reviews',this)">⭐ My Reviews</div>
+
+    <!-- OWNER ONLY -->
+    <div id="owner-nav" style="display:none">
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-item" onclick="switchPanel('venues',this)">🏛️ My Venues</div>
+      <div class="sidebar-item" onclick="switchPanel('add-venue',this)">➕ Add Venue</div>
+      <div class="sidebar-item" id="edit-venue-nav" style="display:none" onclick="switchPanel('edit-venue',this)">✏️ Edit Venue</div>
+      <div class="sidebar-item" id="nav-requests" onclick="switchPanel('requests',this)">📬 Booking Requests</div>
+      <div class="sidebar-item" onclick="switchPanel('slot-manager',this)">🗓️ Slot Manager</div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-item" onclick="switchPanel('profile',this)">👤 Profile</div>
+    <div class="sidebar-item" style="color:var(--brick);margin-top:8px" onclick="logout()">🚪 Sign Out</div>
+  </div>
+
+  <div class="dash-content">
+
+    <!-- ═══ OVERVIEW ═══ -->
+    <div class="dash-panel active" id="panel-overview">
+      <div id="overview-content">
+        <div class="skeleton skeleton-line full" style="height:80px;border-radius:12px;margin-bottom:28px"></div>
+        <div class="stats-row">
+          <div class="stat-card"><div class="skeleton skeleton-line full" style="height:40px;margin-bottom:8px"></div><div class="skeleton skeleton-line medium" style="height:12px"></div></div>
+          <div class="stat-card"><div class="skeleton skeleton-line full" style="height:40px;margin-bottom:8px"></div><div class="skeleton skeleton-line medium" style="height:12px"></div></div>
+          <div class="stat-card"><div class="skeleton skeleton-line full" style="height:40px;margin-bottom:8px"></div><div class="skeleton skeleton-line medium" style="height:12px"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MY BOOKINGS ═══ -->
+    <div class="dash-panel customer-only" id="panel-bookings">
+      <h3 class="panel-title">My Bookings</h3>
+      <div id="bookings-list"><p style="color:var(--muted);padding:32px;text-align:center">Loading…</p></div>
+    </div>
+
+    <!-- ═══ MY REVIEWS ═══ -->
+    <div class="dash-panel customer-only" id="panel-my-reviews">
+      <h3 class="panel-title">Reviews</h3>
+      <div id="my-reviews-content"><p style="color:var(--muted);padding:32px;text-align:center">Loading…</p></div>
+    </div>
+
+    <!-- ═══ MY VENUES (owner) ═══ -->
+    <div class="dash-panel" id="panel-venues">
+      <h3 class="panel-title">My Listed Venues</h3>
+      <div id="owner-venues-list"></div>
+    </div>
+
+    <!-- ═══ ADD VENUE ═══ -->
+    <div class="dash-panel" id="panel-add-venue">
+      <h3 class="panel-title">Add New Venue</h3>
+      <div style="max-width:680px">
+        <div class="form-errors-box" id="av-errors"><ul id="av-errors-list"></ul></div>
+        <div class="dash-form-field"><label class="dash-label">Venue Name *</label><input class="dash-input" type="text" id="av-name" placeholder="The Grand Ballroom" /><div class="field-error" id="av-name-err">Venue name is required</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="dash-form-field"><label class="dash-label">Type</label><select class="dash-input" id="av-type"><option>Banquet Hall</option><option>Conference Center</option><option>Garden</option><option>Rooftop</option><option>Studio</option></select></div>
+          <div class="dash-form-field"><label class="dash-label">Location *</label><input class="dash-input" type="text" id="av-location" placeholder="Bandra, Mumbai" /><div class="field-error" id="av-loc-err">Location is required</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+          <div class="dash-form-field"><label class="dash-label">Capacity * (guests)</label><input class="dash-input" type="number" id="av-capacity" placeholder="200" min="1" step="1" /><div class="field-error" id="av-cap-err">Capacity must be ≥ 1</div></div>
+          <div class="dash-form-field"><label class="dash-label">Price 1hr (₹) *</label><input class="dash-input" type="number" id="av-price1" placeholder="5000" min="1" step="1" /><div class="field-error" id="av-p1-err">Price must be > 0</div></div>
+          <div class="dash-form-field"><label class="dash-label">Price 2hr (₹)</label><input class="dash-input" type="number" id="av-price2" placeholder="9000" min="0" step="1" /></div>
+        </div>
+        <div class="dash-form-field"><label class="dash-label">Plate Price (₹/person, 0 = not applicable)</label><input class="dash-input" type="number" id="av-plate" placeholder="0" min="0" step="1" /><div class="field-error" id="av-plate-err">Plate price must be ≥ 0</div></div>
+        <div class="dash-form-field"><label class="dash-label">Description</label><textarea class="dash-input" id="av-desc" style="height:90px;resize:vertical" placeholder="Describe your venue…"></textarea></div>
+        <div class="dash-form-field">
+          <label class="dash-label">Cover Image</label>
+          <div class="img-upload-area" id="av-cover-area" ondragover="onDragOver(event,'av-cover')" onclick="document.getElementById('av-cover-input').click()">
+            <input type="file" id="av-cover-input" accept="image/jpeg,image/png,image/webp" onchange="onCoverSelect(event,'av')" style="display:none" />
+            <div class="img-upload-icon">🖼️</div>
+            <div class="img-upload-text">Click to upload cover image<br><small>JPG, PNG, WEBP — max 10MB</small></div>
+          </div>
+          <div id="av-cover-preview" style="margin-top:10px"></div>
+        </div>
+        <div class="dash-form-field">
+          <label class="dash-label">Gallery Images (up to 15)</label>
+          <div class="img-upload-area" id="av-gallery-area" onclick="document.getElementById('av-gallery-input').click()">
+            <input type="file" id="av-gallery-input" accept="image/jpeg,image/png,image/webp" multiple onchange="onGallerySelect(event,'av')" style="display:none" />
+            <div class="img-upload-icon">📷</div>
+            <div class="img-upload-text">Click or drag images here</div>
+          </div>
+          <div class="img-preview-grid" id="av-gallery-previews"></div>
+        </div>
+        <div class="dash-form-field">
+          <label class="dash-label">Available Time Slots</label>
+          <div class="slots-grid" id="av-slots-grid"></div>
+          <div class="slot-add-row">
+            <input type="time" class="slot-time-input" id="av-slot-time" value="09:00" />
+            <button class="slot-add-btn" onclick="addSlot('av')">+ Add Slot</button>
+          </div>
+        </div>
+        <div class="dash-form-field">
+          <label class="dash-label">Catering Partner Hotels</label>
+          <div class="hotel-list" id="av-hotels"></div>
+          <button class="add-hotel-btn" onclick="addHotelField('av')">+ Add Hotel</button>
+        </div>
+        <div class="dash-form-field">
+          <label class="dash-label">Amenities & Pricing (₹ / hr)</label>
+          <div class="amenity-pricing-wrap">
+            <table class="amenity-pricing-table">
+              <thead><tr><th>Amenity</th><th>Price / hr</th><th></th></tr></thead>
+              <tbody id="av-amenity-tbody"></tbody>
+            </table>
+          </div>
+          <button class="add-amenity-btn" onclick="addCustomAmenityRow('av-amenity-tbody')">+ Add Amenity</button>
+        </div>
+        <button class="btn-submit" onclick="submitAddVenue()" id="av-submit-btn">List This Venue →</button>
+      </div>
+    </div>
+
+    <!-- ═══ EDIT VENUE ═══ -->
+    <div class="dash-panel" id="panel-edit-venue">
+      <h3 class="panel-title">Edit Venue</h3>
+      <div style="max-width:680px">
+        <input type="hidden" id="ev-id" />
+        <div class="form-errors-box" id="ev-errors"><ul id="ev-errors-list"></ul></div>
+        <div class="dash-form-field"><label class="dash-label">Venue Name *</label><input class="dash-input" type="text" id="ev-name" /><div class="field-error" id="ev-name-err">Venue name is required</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="dash-form-field"><label class="dash-label">Type</label><select class="dash-input" id="ev-type"><option>Banquet Hall</option><option>Conference Center</option><option>Garden</option><option>Rooftop</option><option>Studio</option></select></div>
+          <div class="dash-form-field"><label class="dash-label">Location *</label><input class="dash-input" type="text" id="ev-location" /><div class="field-error" id="ev-loc-err">Location is required</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+          <div class="dash-form-field"><label class="dash-label">Capacity *</label><input class="dash-input" type="number" id="ev-capacity" min="1" /><div class="field-error" id="ev-cap-err">Must be ≥ 1</div></div>
+          <div class="dash-form-field"><label class="dash-label">Price 1hr (₹) *</label><input class="dash-input" type="number" id="ev-price1" min="1" /><div class="field-error" id="ev-p1-err">Must be > 0</div></div>
+          <div class="dash-form-field"><label class="dash-label">Price 2hr (₹)</label><input class="dash-input" type="number" id="ev-price2" min="0" /></div>
+        </div>
+        <div class="dash-form-field"><label class="dash-label">Plate Price (₹/person)</label><input class="dash-input" type="number" id="ev-plate" min="0" /><div class="field-error" id="ev-plate-err">Must be ≥ 0</div></div>
+        <div class="dash-form-field"><label class="dash-label">Description</label><textarea class="dash-input" id="ev-desc" style="height:90px;resize:vertical"></textarea></div>
+        <div class="dash-form-field">
+          <label class="dash-label">Cover Image</label>
+          <div id="ev-current-cover" style="margin-bottom:10px"></div>
+          <div class="img-upload-area" onclick="document.getElementById('ev-cover-input').click()">
+            <input type="file" id="ev-cover-input" accept="image/jpeg,image/png,image/webp" onchange="onCoverSelect(event,'ev')" style="display:none" />
+            <div class="img-upload-icon">🖼️</div>
+            <div class="img-upload-text">Click to replace cover image</div>
+          </div>
+          <div id="ev-cover-preview" style="margin-top:10px"></div>
+        </div>
+        <div class="dash-form-field">
+          <label class="dash-label">Gallery Images</label>
+          <div class="venue-gallery" id="ev-existing-gallery"></div>
+          <div class="img-upload-area" style="margin-top:12px" onclick="document.getElementById('ev-gallery-input').click()">
+            <input type="file" id="ev-gallery-input" accept="image/jpeg,image/png,image/webp" multiple onchange="onGallerySelect(event,'ev')" style="display:none" />
+            <div class="img-upload-icon">➕</div>
+            <div class="img-upload-text">Click to add more gallery images</div>
+          </div>
+          <div class="img-preview-grid" id="ev-gallery-previews"></div>
+        </div>
+        <div class="dash-form-field">
+          <label class="dash-label">Available Time Slots</label>
+          <div class="slots-grid" id="ev-slots-grid"></div>
+          <div class="slot-add-row">
+            <input type="time" class="slot-time-input" id="ev-slot-time" value="09:00" />
+            <button class="slot-add-btn" onclick="addSlot('ev')">+ Add Slot</button>
+          </div>
+        </div>
+        <div class="dash-form-field">
+          <label class="dash-label">Catering Partner Hotels</label>
+          <div class="hotel-list" id="ev-hotels"></div>
+          <button class="add-hotel-btn" onclick="addHotelField('ev')">+ Add Hotel</button>
+        </div>
+        <div class="dash-form-field">
+          <label class="dash-label">Amenities & Pricing (₹ / hr)</label>
+          <div class="amenity-pricing-wrap">
+            <table class="amenity-pricing-table">
+              <thead><tr><th>Amenity</th><th>Price / hr</th><th></th></tr></thead>
+              <tbody id="ev-amenity-tbody"></tbody>
+            </table>
+          </div>
+          <button class="add-amenity-btn" onclick="addCustomAmenityRow('ev-amenity-tbody')">+ Add Custom Amenity</button>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:8px">
+          <button class="btn-submit" onclick="submitEditVenue()" id="ev-submit-btn">Save Changes →</button>
+          <button class="btn-ghost" onclick="switchPanel('venues')">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ BOOKING REQUESTS (owner) ═══ -->
+    <div class="dash-panel" id="panel-requests">
+      <h3 class="panel-title">Booking Requests</h3>
+      <div id="requests-list"><p style="color:var(--muted);padding:32px;text-align:center">Loading…</p></div>
+    </div>
+
+    <!-- ═══ SLOT MANAGER (owner) ═══ -->
+    <div class="dash-panel" id="panel-slot-manager">
+      <h3 class="panel-title">Slot Manager</h3>
+      <p style="color:var(--muted);font-size:0.88rem;margin-bottom:24px">Toggle time slots on/off for each venue. Booked slots are automatically locked.</p>
+      <div id="slot-manager-content"><p style="color:var(--muted);padding:32px;text-align:center">Loading venues…</p></div>
+    </div>
+
+    <!-- ═══ PROFILE ═══ -->
+    <div class="dash-panel" id="panel-profile">
+      <h3 class="panel-title">My Profile</h3>
+      <div style="max-width:480px">
+        <div class="dash-form-field"><label class="dash-label">Name</label><input class="dash-input" type="text" id="prof-name" /></div>
+        <div class="dash-form-field"><label class="dash-label">Email</label><input class="dash-input" type="email" id="prof-email" disabled /></div>
+        <div class="dash-form-field"><label class="dash-label">Phone</label><input class="dash-input" type="tel" id="prof-phone" /></div>
+        <div class="dash-form-field"><label class="dash-label">Role</label><input class="dash-input" type="text" id="prof-role" disabled /></div>
+        <button class="btn-submit" style="width:auto;padding:12px 32px" onclick="toast('Profile update coming soon','info')">Save Profile</button>
+      </div>
+    </div>
+
+  </div><!-- end dash-content -->
+</div><!-- end dashboard -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODALS
+     ══════════════════════════════════════════════════════════════ -->
+
+<!-- AUTH -->
+<div class="modal-overlay" id="auth-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="auth-modal-title">Sign In</div>
+      <button class="modal-close" onclick="closeModal('auth-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-tabs">
+        <div class="modal-tab active" id="tab-login" onclick="switchAuthTab('login')">Sign In</div>
+        <div class="modal-tab" id="tab-register" onclick="switchAuthTab('register')">Register</div>
+      </div>
+      <!-- LOGIN -->
+      <div id="auth-login">
+        <div class="form-errors-box" id="login-errors"><ul id="login-errors-list"></ul></div>
+        <div class="form-field"><label class="form-label">Email *</label><input class="form-input" type="email" id="login-email" placeholder="you@example.com" /></div>
+        <div class="form-field"><label class="form-label">Password *</label><input class="form-input" type="password" id="login-password" placeholder="••••••••" /></div>
+        <button class="btn-submit" onclick="login()">Sign In →</button>
+        <p style="margin-top:16px;font-size:0.82rem;color:var(--muted);text-align:center">
+          Not registered? <a style="color:var(--gold);cursor:pointer;font-weight:600" onclick="switchAuthTab('register')">Create an account →</a>
+        </p>
+      </div>
+      <!-- REGISTER -->
+      <div id="auth-register" style="display:none">
+        <div class="form-errors-box" id="reg-errors"><ul id="reg-errors-list"></ul></div>
+        <div class="form-field"><label class="form-label">Full Name *</label><input class="form-input" type="text" id="reg-name" placeholder="Your name" /></div>
+        <div class="form-field"><label class="form-label">Email *</label><input class="form-input" type="email" id="reg-email" placeholder="you@example.com" /></div>
+        <div class="form-field"><label class="form-label">Password *</label><input class="form-input" type="password" id="reg-password" placeholder="•••••••• (min 6 chars)" /></div>
+        <div class="form-field"><label class="form-label">Phone</label><input class="form-input" type="tel" id="reg-phone" placeholder="+91 98765 43210" /></div>
+        <div class="form-field"><label class="form-label">Role</label>
+          <select class="form-input" id="reg-role"><option value="customer">Customer</option><option value="owner">Venue Owner</option></select>
+        </div>
+        <button class="btn-submit" onclick="register()">Create Account →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BOOKING -->
+<div class="modal-overlay" id="booking-modal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-title" id="booking-modal-title">Book Venue</div>
+      <button class="modal-close" onclick="closeModal('booking-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="booking-body"></div>
+  </div>
+</div>
+
+<!-- PAYMENT -->
+<div class="modal-overlay payment-modal" id="payment-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title">Complete Payment</div>
+      <button class="modal-close" onclick="closeModal('payment-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="payment-body"></div>
+  </div>
+</div>
+
+<!-- RECEIPT -->
+<div class="modal-overlay receipt-modal" id="receipt-modal">
+  <div class="modal" style="max-width:580px;padding:0">
+    <div id="receipt-content"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="evntly.js"></script>
+</body>
+</html>

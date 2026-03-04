@@ -118,6 +118,7 @@ const reviewSchema = new mongoose.Schema({
   userName: { type: String },
   rating:   { type: Number, min: 1, max: 5 },
   comment:  { type: String },
+  photo:    { type: String, default: '' },
 }, { timestamps: true });
 
 const Venue   = mongoose.model('Venue',   venueSchema);
@@ -182,9 +183,14 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (!user || !(await bcrypt.compare(password, user.password)))
-      return res.status(400).json({ error: 'Invalid email or password' });
+    if (!email || !password)
+      return res.status(400).json({ error: 'Email and password are required' });
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user)
+      return res.status(400).json({ error: 'This email is not registered. Please register first.' });
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid)
+      return res.status(400).json({ error: 'Incorrect password. Please try again.' });
     const token = jwt.sign({ id: user._id, role: user.role, name: user.name, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user: { _id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone } });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -384,6 +390,11 @@ app.post('/api/bookings', authMiddleware, async (req, res) => {
     if (!hours)     errors.push('Duration is required');
     const g = parseInt(guests);
     if (!g || g < 1) errors.push('Number of guests must be at least 1');
+
+    // Block same-day bookings
+    const today = new Date().toISOString().split('T')[0];
+    if (date && date === today) errors.push('Same-day bookings are not allowed. Please select a future date.');
+
     if (errors.length) return res.status(400).json({ errors });
 
     const venue = await Venue.findById(venueId);
@@ -465,7 +476,7 @@ app.patch('/api/bookings/:id/status', ownerMiddleware, async (req, res) => {
 
     const b = await Booking.findByIdAndUpdate(req.params.id, { status }, { new: true });
 
-    // When approved: block the slot date on the venue
+    // When confirmed: block the slot date on the venue
     if (status === 'confirmed' && existing.venueId && existing.date && existing.startTime) {
       const venue = await Venue.findById(existing.venueId);
       if (venue) {
@@ -477,14 +488,12 @@ app.patch('/api/bookings/:id/status', ownerMiddleware, async (req, res) => {
       }
     }
 
-    // When rejected or cancelled: UNBLOCK the slot date so other customers can book it
+    // When rejected or cancelled: UNBLOCK the slot so other customers can book
     if ((status === 'rejected' || status === 'cancelled') && existing.venueId && existing.date && existing.startTime) {
       const venue = await Venue.findById(existing.venueId);
       if (venue) {
         const slot = venue.slots.find(s => s.time === existing.startTime);
-        if (slot) {
-          slot.blockedDates = slot.blockedDates.filter(d => d !== existing.date);
-        }
+        if (slot) slot.blockedDates = slot.blockedDates.filter(d => d !== existing.date);
         await venue.save();
       }
     }
@@ -546,12 +555,14 @@ app.get('/api/reviews', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/reviews', authMiddleware, async (req, res) => {
+app.post('/api/reviews', authMiddleware, upload.single('photo'), async (req, res) => {
   try {
     const { venueId, rating, comment } = req.body;
     if (!venueId || !rating) return res.status(400).json({ error: 'Venue and rating required' });
     const user   = await User.findById(req.user.id);
-    const review = await Review.create({ venueId, userId: req.user.id, userName: user?.name, rating, comment });
+    let photoFile = '';
+    if (req.file) photoFile = await saveImage(req.file.buffer);
+    const review = await Review.create({ venueId, userId: req.user.id, userName: user?.name, rating, comment, photo: photoFile });
     const allRev = await Review.find({ venueId });
     const avg    = allRev.reduce((s, r) => s + r.rating, 0) / allRev.length;
     await Venue.findByIdAndUpdate(venueId, { rating: Math.round(avg * 10) / 10, reviewCount: allRev.length });
@@ -567,4 +578,4 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
-app.listen(PORT, () => console.log(`🚀 EVNTLY running on http://localhost:3000/evntly-frontend.html`));
+app.listen(PORT, () => console.log(`🚀 EVNTLY running on http://localhost:3000/index.html`));
