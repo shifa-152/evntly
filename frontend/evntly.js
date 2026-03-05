@@ -44,7 +44,163 @@ function isValidEmail(email) {
   return true;
 }
 
-// Indian mobile validation: 10 digits, starts with 6-9
+// Check that the domain name part (before TLD) is at least 2 chars and not obviously fake
+// e.g. rejects: mail.com (too short/generic bare), gmai.com (known typo patterns)
+function isStrictDomainEmail(email) {
+  const domain = email.split('@')[1] || '';
+  const parts = domain.split('.');
+  if (parts.length < 2) return false;
+  const domainName = parts.slice(0, -1).join('.').toLowerCase();
+  const tld = parts[parts.length - 1].toLowerCase();
+  if (domainName.length < 2) return false;
+  // If it looks like a known provider, must be exact — reject typos
+  if (parts.length === 2) {
+    // Check if it's a close-but-not-exact match to a known provider (typo)
+    if (!ALLOWED_PROVIDERS.includes(domainName)) {
+      // If edit distance <= 2 from a provider, it's a typo — reject
+      for (const p of ALLOWED_PROVIDERS) {
+        if (editDistance(domainName, p) <= 2) return false;
+      }
+    }
+    // Very short unknown domains
+    if (domainName.length <= 2 && !ALLOWED_PROVIDERS.includes(domainName)) return false;
+  }
+  // Reject invalid TLD
+  const validTLDs = ['com','in','org','net','edu','gov','io','co','uk','au','de','fr','me'];
+  if (!validTLDs.includes(tld) && !(tld.length >= 2 && tld.length <= 6)) return false;
+  return true;
+}
+
+// ─── LIVE EMAIL HINT ──────────────────────────────────────────────
+// Renders character-level feedback: green=correct, red=wrong char, yellow=missing
+const ALLOWED_PROVIDERS = ['gmail','yahoo','outlook','hotmail','icloud','protonmail','rediffmail','zoho','yandex'];
+
+function liveEmailHint(inputId, hintId) {
+  const input   = document.getElementById(inputId);
+  const hintEl  = document.getElementById(hintId);
+  if (!input || !hintEl) return;
+  const val = input.value;
+  if (!val) { hintEl.innerHTML = ''; return; }
+
+  // Split into parts: localPart @ domainName . tld
+  const atIdx = val.indexOf('@');
+
+  // ── Before @ ────────────────────────────────────────────────────
+  if (atIdx === -1) {
+    // No @ yet — show local part in green and hint for @
+    hintEl.innerHTML =
+      spanOk(val) + spanMiss('@domain.com') +
+      msg('warn', 'Add @ followed by your email domain');
+    return;
+  }
+
+  const local  = val.slice(0, atIdx);
+  const rest   = val.slice(atIdx + 1); // everything after @
+  const dotIdx = rest.lastIndexOf('.');
+
+  // ── No domain yet ───────────────────────────────────────────────
+  if (!rest) {
+    hintEl.innerHTML = spanOk(local + '@') + spanMiss('gmail.com') +
+      msg('warn', 'Type your domain (e.g. gmail.com)');
+    return;
+  }
+
+  // ── Has domain, check for dot ────────────────────────────────────
+  if (dotIdx === -1) {
+    // No dot in domain — show domain typed and suggest .com
+    const suggestion = suggestProvider(rest);
+    if (suggestion) {
+      const [okPart, badPart, fixPart] = diffStr(rest, suggestion);
+      hintEl.innerHTML = spanOk(local + '@') + okPart + badPart + spanMiss(fixPart + '.com') +
+        msg('err', `Did you mean ${local}@${suggestion}.com?`);
+    } else {
+      hintEl.innerHTML = spanOk(local + '@' + rest) + spanMiss('.com') +
+        msg('warn', 'Add a TLD like .com or .in');
+    }
+    return;
+  }
+
+  const domainName = rest.slice(0, dotIdx);   // e.g. "gmail"
+  const tld        = rest.slice(dotIdx + 1);  // e.g. "com"
+
+  // ── Check domainName for typos against known providers ───────────
+  const suggestion = suggestProvider(domainName);
+  const providerOk = ALLOWED_PROVIDERS.includes(domainName.toLowerCase());
+
+  // ── Check TLD ───────────────────────────────────────────────────
+  const validTLDs = ['com','in','org','net','edu','gov','io','co','uk','au','de','fr','me'];
+  const tldOk = validTLDs.includes(tld.toLowerCase()) || (tld.length >= 2 && tld.length <= 6 && /^[a-zA-Z]+$/.test(tld));
+
+  let domainHtml = '';
+  let tldHtml    = '';
+  let statusMsg  = '';
+
+  if (!providerOk && suggestion) {
+    // Typo in domain name — highlight char differences
+    const [okPart, badPart] = diffStr(domainName, suggestion);
+    const fixNeeded = suggestion.slice(okPart.replace(/<[^>]+>/g,'').length);
+    domainHtml = okPart + (badPart ? badPart : '') + (fixNeeded ? spanMiss(fixNeeded) : '');
+    statusMsg  = msg('err', `Did you mean @${suggestion}.com? Check highlighted characters`);
+  } else if (!providerOk && domainName.length >= 3) {
+    // Unknown provider but plausible — show in green (custom domain)
+    domainHtml = spanOk(domainName);
+    statusMsg  = msg('warn', 'Unknown provider — double-check your domain');
+  } else {
+    domainHtml = spanOk(domainName);
+  }
+
+  if (!tld) {
+    tldHtml   = spanMiss('com');
+    statusMsg = msg('warn', 'Add a TLD like .com');
+  } else if (!tldOk) {
+    tldHtml   = spanBad(tld);
+    statusMsg = msg('err', 'Invalid TLD — use .com, .in, .org etc.');
+  } else {
+    tldHtml   = spanOk(tld);
+    if (!statusMsg) statusMsg = msg('ok', '✓ Email looks valid');
+  }
+
+  hintEl.innerHTML =
+    spanOk(local + '@') + domainHtml + spanOk('.') + tldHtml + statusMsg;
+}
+
+function spanOk(s)   { return s ? `<span class="eh-ok">${escHtml(s)}</span>` : ''; }
+function spanBad(s)  { return s ? `<span class="eh-bad">${escHtml(s)}</span>` : ''; }
+function spanMiss(s) { return s ? `<span class="eh-miss">[${escHtml(s)}]</span>` : ''; }
+function msg(type, text) { return `<span class="eh-msg ${type}-msg">${escHtml(text)}</span>`; }
+
+// Returns closest known provider if within edit distance 2, else null
+function suggestProvider(input) {
+  const s = input.toLowerCase();
+  if (ALLOWED_PROVIDERS.includes(s)) return null; // exact match, no suggestion needed
+  let best = null, bestDist = 3;
+  for (const p of ALLOWED_PROVIDERS) {
+    const d = editDistance(s, p);
+    if (d < bestDist) { bestDist = d; best = p; }
+  }
+  return best;
+}
+
+// Returns [okSpan, badSpan] comparing typed vs target char by char
+function diffStr(typed, target) {
+  let ok = '', bad = '';
+  let i = 0;
+  // Find common prefix
+  while (i < typed.length && i < target.length && typed[i].toLowerCase() === target[i].toLowerCase()) {
+    ok += typed[i]; i++;
+  }
+  bad = typed.slice(i); // remaining wrong chars
+  return [spanOk(ok), bad ? spanBad(bad) : ''];
+}
+
+function editDistance(a, b) {
+  const dp = Array.from({length: a.length + 1}, (_, i) =>
+    Array.from({length: b.length + 1}, (_, j) => i === 0 ? j : j === 0 ? i : 0));
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[a.length][b.length];
+}
 function isValidPhone(phone) {
   if (!phone) return true;
   const cleaned = phone.replace(/[\s\-\+]/g, "");
@@ -180,8 +336,10 @@ async function register() {
   const role     = document.getElementById('reg-role').value;
   const errors   = [];
   if (!name)                    errors.push('Name is required');
+  else if (!/^[A-Za-z\s']+$/.test(name)) errors.push("Name must contain only letters and apostrophes (no numbers or special characters)");
   if (!email)                   errors.push('Email is required');
-  else if (!isValidEmail(email)) errors.push('Invalid email — e.g. mehran@gmail.com.com is not allowed. Use a real email like you@example.com');
+  else if (!isValidEmail(email)) errors.push('Invalid email — please enter a valid address like you@gmail.com');
+  else if (!isStrictDomainEmail(email)) errors.push('Email domain looks invalid — please use a real email like you@gmail.com');
   if (!password)                errors.push('Password is required');
   else if (password.length < 6) errors.push('Password must be at least 6 characters');
   const phoneErr = phoneError(phone);
@@ -208,7 +366,8 @@ async function registerOwner() {
   const password = document.getElementById('ow-password').value;
   const phone    = document.getElementById('ow-phone').value.trim();
   if (!name || !email || !password) return toast('Please fill all required fields','error');
-  if (!isValidEmail(email)) return toast('Please enter a valid email address','error');
+  if (!/^[A-Za-z\s']+$/.test(name)) return toast("Name must contain only letters and apostrophes — no numbers or special characters",'error');
+  if (!isValidEmail(email) || !isStrictDomainEmail(email)) return toast('Please enter a valid email address (e.g. you@gmail.com)','error');
   if (password.length < 6)  return toast('Password must be at least 6 characters','error');
   const owPhoneErr = phoneError(phone);
   if (owPhoneErr) return toast(owPhoneErr, 'error');
@@ -236,7 +395,26 @@ function logout() {
 function scrollToTop()        { hideDashboard(); document.getElementById('hero').scrollIntoView({ behavior:'smooth' }); }
 function scrollToVenues()     { hideDashboard(); setTimeout(()=>document.getElementById('venues-section').scrollIntoView({ behavior:'smooth' }), 50); }
 function scrollToFacilities() { hideDashboard(); setTimeout(()=>document.getElementById('facilities-section').scrollIntoView({ behavior:'smooth' }), 50); }
-function scrollToOwner()      { hideDashboard(); setTimeout(()=>document.getElementById('owner-section').scrollIntoView({ behavior:'smooth' }), 50); }
+function scrollToOwner() {
+  // Restore all hidden page sections
+  document.querySelectorAll('.hero,.search-section,.section,footer,.owner-section').forEach(el => el.style.display = '');
+  document.getElementById('dashboard').style.display = 'none';
+  const ownerEl   = document.getElementById('owner-section');
+  const formCard  = document.getElementById('owner-form-card');
+  if (ownerEl) ownerEl.style.display = 'block';
+  const target = formCard || ownerEl;
+  if (target) {
+    setTimeout(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Briefly highlight the form card so the user knows where to look
+      if (formCard) {
+        formCard.style.transition = 'box-shadow 0.3s ease';
+        formCard.style.boxShadow  = '0 0 0 3px #C9A84C, 0 8px 40px rgba(201,168,76,0.4)';
+        setTimeout(() => { formCard.style.boxShadow = ''; }, 2000);
+      }
+    }, 60);
+  }
+}
 function scrollToReviews()    { hideDashboard(); setTimeout(()=>document.getElementById('reviews-section').scrollIntoView({ behavior:'smooth' }), 50); }
 
 function toggleMobileMenu() {

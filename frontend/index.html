@@ -6,6 +6,19 @@
 <title>EVNTLY — Book Extraordinary Spaces</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="evntly.css" />
+<style>
+.email-hint { font-size: 0.78rem; margin-top: 5px; min-height: 18px; line-height: 1.5; font-family: monospace; letter-spacing: 0.02em; }
+.email-hint .eh-ok   { color: #22c55e; }
+.email-hint .eh-bad  { color: #ef4444; text-decoration: underline wavy #ef4444; font-weight: 700; }
+.email-hint .eh-miss { color: #f59e0b; font-weight: 700; }
+.email-hint .eh-msg  { font-family: sans-serif; font-size: 0.75rem; display: block; margin-top: 2px; }
+.email-hint .eh-msg.ok-msg  { color: #22c55e; }
+.email-hint .eh-msg.err-msg { color: #ef4444; }
+.email-hint .eh-msg.warn-msg{ color: #f59e0b; }
+.email-hint-dark .eh-ok  { color: #86efac; }
+.email-hint-dark .eh-bad { color: #fca5a5; }
+.email-hint-dark .eh-miss{ color: #fcd34d; }
+</style>
 </head>
 <body>
 
@@ -42,10 +55,10 @@
      ══════════════════════════════════════════════════════════════ -->
 <section class="hero" id="hero">
   <div class="hero-bg"></div>
-  <div class="hero-badge">Premium Venue Booking Platform</div>
-  <h1>Find Your Perfect<br><em>Event Space</em></h1>
-  <p>From intimate gatherings to grand celebrations, discover and book extraordinary spaces across India — effortlessly.</p>
-  <div class="hero-actions">
+  <div class="hero-badge" style="position:relative;z-index:2">Premium Venue Booking Platform</div>
+  <h1 style="position:relative;z-index:2">Find Your Perfect<br><em>Event Space</em></h1>
+  <p style="position:relative;z-index:2">From intimate gatherings to grand celebrations, discover and book extraordinary spaces across India — effortlessly.</p>
+  <div class="hero-actions" style="position:relative;z-index:2">
     <button class="btn-cta" onclick="scrollToVenues()">Browse Venues →</button>
     <button class="btn-outline" onclick="scrollToOwner()">List Your Space</button>
   </div>
@@ -135,10 +148,10 @@
         <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Earn Revenue</h4><p>Track earnings, manage slots, and grow your venue business effortlessly.</p></div></div>
       </div>
     </div>
-    <div class="owner-form-card">
+    <div class="owner-form-card" id="owner-form-card">
       <h3>Register as a Venue Owner</h3>
       <div class="df-group"><label class="dark-label">Full Name *</label><input class="dark-field" type="text" id="ow-name" placeholder="Your name" /></div>
-      <div class="df-group"><label class="dark-label">Email *</label><input class="dark-field" type="email" id="ow-email" placeholder="you@example.com" /></div>
+      <div class="df-group"><label class="dark-label">Email *</label><input class="dark-field" type="text" id="ow-email" placeholder="you@gmail.com" oninput="liveEmailHint('ow-email','ow-email-hint')" autocomplete="email" /><div id="ow-email-hint" class="email-hint email-hint-dark"></div></div>
       <div class="df-group"><label class="dark-label">Password *</label><input class="dark-field" type="password" id="ow-password" placeholder="••••••••" /></div>
       <div class="df-group"><label class="dark-label">Phone</label><input class="dark-field" type="tel" id="ow-phone" placeholder="+91 98765 43210" /></div>
       <button class="btn-cta" style="width:100%;margin-top:8px" onclick="registerOwner()">Get Started →</button>
@@ -426,7 +439,7 @@
       <div id="auth-register" style="display:none">
         <div class="form-errors-box" id="reg-errors"><ul id="reg-errors-list"></ul></div>
         <div class="form-field"><label class="form-label">Full Name *</label><input class="form-input" type="text" id="reg-name" placeholder="Your name" /></div>
-        <div class="form-field"><label class="form-label">Email *</label><input class="form-input" type="email" id="reg-email" placeholder="you@example.com" /></div>
+        <div class="form-field"><label class="form-label">Email *</label><input class="form-input" type="text" id="reg-email" placeholder="you@gmail.com" oninput="liveEmailHint('reg-email','reg-email-hint')" autocomplete="email" /><div id="reg-email-hint" class="email-hint"></div></div>
         <div class="form-field"><label class="form-label">Password *</label><input class="form-input" type="password" id="reg-password" placeholder="•••••••• (min 6 chars)" /></div>
         <div class="form-field"><label class="form-label">Phone</label><input class="form-input" type="tel" id="reg-phone" placeholder="+91 98765 43210" /></div>
         <div class="form-field"><label class="form-label">Role</label>
@@ -435,6 +448,17 @@
         <button class="btn-submit" onclick="register()">Create Account →</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- VENUE DETAIL -->
+<div class="modal-overlay" id="venue-detail-modal">
+  <div class="modal" style="max-width:720px">
+    <div class="modal-header">
+      <div class="modal-title" id="venue-detail-modal-title">Venue Details</div>
+      <button class="modal-close" onclick="closeModal('venue-detail-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="venue-detail-body"></div>
   </div>
 </div>
 
