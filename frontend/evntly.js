@@ -242,10 +242,16 @@ function logout() {
 
 // ─── NAVIGATION ──────────────────────────────────────────────────
 function scrollToTop()        { hideDashboard(); document.getElementById('hero').scrollIntoView({ behavior:'smooth' }); }
-function scrollToVenues()     { hideDashboard(); setTimeout(()=>document.getElementById('venues-section').scrollIntoView({ behavior:'smooth' }), 50); }
-function scrollToFacilities() { hideDashboard(); setTimeout(()=>document.getElementById('facilities-section').scrollIntoView({ behavior:'smooth' }), 50); }
-function scrollToOwner()      { hideDashboard(); setTimeout(()=>document.getElementById('owner-section').scrollIntoView({ behavior:'smooth' }), 50); }
-function scrollToReviews()    { hideDashboard(); setTimeout(()=>document.getElementById('reviews-section').scrollIntoView({ behavior:'smooth' }), 50); }
+function scrollToSection(id) {
+  hideDashboard();
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  }));
+}
+function scrollToVenues()     { scrollToSection('venues-section'); }
+function scrollToFacilities() { scrollToSection('facilities-section'); }
+function scrollToOwner()      { scrollToSection('owner-section'); }
+function scrollToReviews()    { scrollToSection('reviews-section'); }
 
 function toggleMobileMenu() {
   document.getElementById('nav-mobile-menu').classList.toggle('open');
@@ -421,10 +427,10 @@ async function openBookingModal(venueId) {
   }
   currentVenue = v;
   try {
-    const titleEl = document.getElementById('booking-modal-title');
+    const titleEl = document.getElementById('venue-detail-modal-title');
     if (titleEl) titleEl.textContent = v.name;
     renderVenueDetailModal(v);
-    openModal('booking-modal');
+    openModal('venue-detail-modal');
   } catch(e) {
     console.error('renderVenueDetailModal crash:', e);
     toast('UI error rendering venue: ' + (e?.message || String(e)), 'error');
@@ -490,7 +496,7 @@ function renderVenueDetailModal(v) {
     hotelHtml = '<div class="form-field"><label class="form-label">Catering Hotel Preference</label><select class="form-input" id="bk-catering-hotel"><option value="">No preference</option>' + opts + '</select></div>';
   }
 
-  document.getElementById('booking-body').innerHTML =
+  document.getElementById('venue-detail-body').innerHTML =
     galleryHtml +
     '<div class="vd-info">' +
       '<div class="vd-meta">' +
@@ -682,7 +688,7 @@ async function confirmBooking() {
       facilities, cateringType: catering,
       basePrice: base, addonPrice: addon, plateCharges: plateChg, total,
     }});
-    closeModal('booking-modal');
+    closeModal('venue-detail-modal');
     showBookingPendingNotice(booking, v);
   } catch(e) {
     const errs = e.errors || [e.error || 'Booking failed'];
