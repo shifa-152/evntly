@@ -7,17 +7,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="evntly.css" />
 <style>
-.email-hint { font-size: 0.78rem; margin-top: 5px; min-height: 18px; line-height: 1.5; font-family: monospace; letter-spacing: 0.02em; }
-.email-hint .eh-ok   { color: #22c55e; }
-.email-hint .eh-bad  { color: #ef4444; text-decoration: underline wavy #ef4444; font-weight: 700; }
-.email-hint .eh-miss { color: #f59e0b; font-weight: 700; }
-.email-hint .eh-msg  { font-family: sans-serif; font-size: 0.75rem; display: block; margin-top: 2px; }
-.email-hint .eh-msg.ok-msg  { color: #22c55e; }
-.email-hint .eh-msg.err-msg { color: #ef4444; }
-.email-hint .eh-msg.warn-msg{ color: #f59e0b; }
-.email-hint-dark .eh-ok  { color: #86efac; }
-.email-hint-dark .eh-bad { color: #fca5a5; }
-.email-hint-dark .eh-miss{ color: #fcd34d; }
+.btn-sm-danger{background:#ef4444;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:0.8rem;cursor:pointer;font-weight:600}
+.btn-sm-success{background:#22c55e;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:0.8rem;cursor:pointer;font-weight:600}
+.slot-toggle-btn{border:none;border-radius:6px;padding:6px 14px;font-size:0.84rem;cursor:pointer;font-weight:600;transition:opacity .15s}
+.slot-toggle-btn.slot-on{background:#22c55e;color:#fff}
+.slot-toggle-btn.slot-off{background:#ef4444;color:#fff}
+.slot-toggle-btn:disabled{opacity:.6;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -55,10 +50,10 @@
      ══════════════════════════════════════════════════════════════ -->
 <section class="hero" id="hero">
   <div class="hero-bg"></div>
-  <div class="hero-badge" style="position:relative;z-index:2">Premium Venue Booking Platform</div>
-  <h1 style="position:relative;z-index:2">Find Your Perfect<br><em>Event Space</em></h1>
-  <p style="position:relative;z-index:2">From intimate gatherings to grand celebrations, discover and book extraordinary spaces across India — effortlessly.</p>
-  <div class="hero-actions" style="position:relative;z-index:2">
+  <div class="hero-badge">Premium Venue Booking Platform</div>
+  <h1>Find Your Perfect<br><em>Event Space</em></h1>
+  <p>From intimate gatherings to grand celebrations, discover and book extraordinary spaces across India — effortlessly.</p>
+  <div class="hero-actions">
     <button class="btn-cta" onclick="scrollToVenues()">Browse Venues →</button>
     <button class="btn-outline" onclick="scrollToOwner()">List Your Space</button>
   </div>
@@ -148,10 +143,10 @@
         <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Earn Revenue</h4><p>Track earnings, manage slots, and grow your venue business effortlessly.</p></div></div>
       </div>
     </div>
-    <div class="owner-form-card" id="owner-form-card">
+    <div class="owner-form-card">
       <h3>Register as a Venue Owner</h3>
       <div class="df-group"><label class="dark-label">Full Name *</label><input class="dark-field" type="text" id="ow-name" placeholder="Your name" /></div>
-      <div class="df-group"><label class="dark-label">Email *</label><input class="dark-field" type="text" id="ow-email" placeholder="you@gmail.com" oninput="liveEmailHint('ow-email','ow-email-hint')" autocomplete="email" /><div id="ow-email-hint" class="email-hint email-hint-dark"></div></div>
+      <div class="df-group"><label class="dark-label">Email *</label><input class="dark-field" type="email" id="ow-email" placeholder="you@example.com" /></div>
       <div class="df-group"><label class="dark-label">Password *</label><input class="dark-field" type="password" id="ow-password" placeholder="••••••••" /></div>
       <div class="df-group"><label class="dark-label">Phone</label><input class="dark-field" type="tel" id="ow-phone" placeholder="+91 98765 43210" /></div>
       <button class="btn-cta" style="width:100%;margin-top:8px" onclick="registerOwner()">Get Started →</button>
@@ -287,12 +282,18 @@
           <div class="img-preview-grid" id="av-gallery-previews"></div>
         </div>
         <div class="dash-form-field">
-          <label class="dash-label">Available Time Slots</label>
-          <div class="slots-grid" id="av-slots-grid"></div>
-          <div class="slot-add-row">
-            <input type="time" class="slot-time-input" id="av-slot-time" value="09:00" />
-            <button class="slot-add-btn" onclick="addSlot('av')">+ Add Slot</button>
+          <label class="dash-label">Venue Opening Hours <span style="font-size:0.75rem;color:var(--muted);font-weight:400">— customers book hourly slots within this window (max 7 hrs)</span></label>
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:6px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:0.85rem;color:var(--muted);white-space:nowrap">Opens at</label>
+              <input type="time" class="dash-input" id="av-open-time" value="09:00" style="width:130px" onchange="updateHoursPreview('av')" />
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:0.85rem;color:var(--muted);white-space:nowrap">Closes at</label>
+              <input type="time" class="dash-input" id="av-close-time" value="22:00" style="width:130px" onchange="updateHoursPreview('av')" />
+            </div>
           </div>
+          <div id="av-hours-preview" style="margin-top:6px;font-size:0.8rem;color:#4a5e4f">🕐 Open <strong>09:00–22:00</strong> · <strong>13 hrs</strong> window</div>
         </div>
         <div class="dash-form-field">
           <label class="dash-label">Catering Partner Hotels</label>
@@ -352,12 +353,18 @@
           <div class="img-preview-grid" id="ev-gallery-previews"></div>
         </div>
         <div class="dash-form-field">
-          <label class="dash-label">Available Time Slots</label>
-          <div class="slots-grid" id="ev-slots-grid"></div>
-          <div class="slot-add-row">
-            <input type="time" class="slot-time-input" id="ev-slot-time" value="09:00" />
-            <button class="slot-add-btn" onclick="addSlot('ev')">+ Add Slot</button>
+          <label class="dash-label">Venue Opening Hours <span style="font-size:0.75rem;color:var(--muted);font-weight:400">— customers book hourly slots within this window (max 7 hrs)</span></label>
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:6px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:0.85rem;color:var(--muted);white-space:nowrap">Opens at</label>
+              <input type="time" class="dash-input" id="ev-open-time" value="09:00" style="width:130px" onchange="updateHoursPreview('ev')" />
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:0.85rem;color:var(--muted);white-space:nowrap">Closes at</label>
+              <input type="time" class="dash-input" id="ev-close-time" value="22:00" style="width:130px" onchange="updateHoursPreview('ev')" />
+            </div>
           </div>
+          <div id="ev-hours-preview" style="margin-top:6px;font-size:0.8rem;color:#4a5e4f"></div>
         </div>
         <div class="dash-form-field">
           <label class="dash-label">Catering Partner Hotels</label>
@@ -439,7 +446,7 @@
       <div id="auth-register" style="display:none">
         <div class="form-errors-box" id="reg-errors"><ul id="reg-errors-list"></ul></div>
         <div class="form-field"><label class="form-label">Full Name *</label><input class="form-input" type="text" id="reg-name" placeholder="Your name" /></div>
-        <div class="form-field"><label class="form-label">Email *</label><input class="form-input" type="text" id="reg-email" placeholder="you@gmail.com" oninput="liveEmailHint('reg-email','reg-email-hint')" autocomplete="email" /><div id="reg-email-hint" class="email-hint"></div></div>
+        <div class="form-field"><label class="form-label">Email *</label><input class="form-input" type="email" id="reg-email" placeholder="you@example.com" /></div>
         <div class="form-field"><label class="form-label">Password *</label><input class="form-input" type="password" id="reg-password" placeholder="•••••••• (min 6 chars)" /></div>
         <div class="form-field"><label class="form-label">Phone</label><input class="form-input" type="tel" id="reg-phone" placeholder="+91 98765 43210" /></div>
         <div class="form-field"><label class="form-label">Role</label>
@@ -448,17 +455,6 @@
         <button class="btn-submit" onclick="register()">Create Account →</button>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- VENUE DETAIL -->
-<div class="modal-overlay" id="venue-detail-modal">
-  <div class="modal" style="max-width:720px">
-    <div class="modal-header">
-      <div class="modal-title" id="venue-detail-modal-title">Venue Details</div>
-      <button class="modal-close" onclick="closeModal('venue-detail-modal')">✕</button>
-    </div>
-    <div class="modal-body" id="venue-detail-body"></div>
   </div>
 </div>
 

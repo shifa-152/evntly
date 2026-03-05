@@ -44,163 +44,7 @@ function isValidEmail(email) {
   return true;
 }
 
-// Check that the domain name part (before TLD) is at least 2 chars and not obviously fake
-// e.g. rejects: mail.com (too short/generic bare), gmai.com (known typo patterns)
-function isStrictDomainEmail(email) {
-  const domain = email.split('@')[1] || '';
-  const parts = domain.split('.');
-  if (parts.length < 2) return false;
-  const domainName = parts.slice(0, -1).join('.').toLowerCase();
-  const tld = parts[parts.length - 1].toLowerCase();
-  if (domainName.length < 2) return false;
-  // If it looks like a known provider, must be exact — reject typos
-  if (parts.length === 2) {
-    // Check if it's a close-but-not-exact match to a known provider (typo)
-    if (!ALLOWED_PROVIDERS.includes(domainName)) {
-      // If edit distance <= 2 from a provider, it's a typo — reject
-      for (const p of ALLOWED_PROVIDERS) {
-        if (editDistance(domainName, p) <= 2) return false;
-      }
-    }
-    // Very short unknown domains
-    if (domainName.length <= 2 && !ALLOWED_PROVIDERS.includes(domainName)) return false;
-  }
-  // Reject invalid TLD
-  const validTLDs = ['com','in','org','net','edu','gov','io','co','uk','au','de','fr','me'];
-  if (!validTLDs.includes(tld) && !(tld.length >= 2 && tld.length <= 6)) return false;
-  return true;
-}
-
-// ─── LIVE EMAIL HINT ──────────────────────────────────────────────
-// Renders character-level feedback: green=correct, red=wrong char, yellow=missing
-const ALLOWED_PROVIDERS = ['gmail','yahoo','outlook','hotmail','icloud','protonmail','rediffmail','zoho','yandex'];
-
-function liveEmailHint(inputId, hintId) {
-  const input   = document.getElementById(inputId);
-  const hintEl  = document.getElementById(hintId);
-  if (!input || !hintEl) return;
-  const val = input.value;
-  if (!val) { hintEl.innerHTML = ''; return; }
-
-  // Split into parts: localPart @ domainName . tld
-  const atIdx = val.indexOf('@');
-
-  // ── Before @ ────────────────────────────────────────────────────
-  if (atIdx === -1) {
-    // No @ yet — show local part in green and hint for @
-    hintEl.innerHTML =
-      spanOk(val) + spanMiss('@domain.com') +
-      msg('warn', 'Add @ followed by your email domain');
-    return;
-  }
-
-  const local  = val.slice(0, atIdx);
-  const rest   = val.slice(atIdx + 1); // everything after @
-  const dotIdx = rest.lastIndexOf('.');
-
-  // ── No domain yet ───────────────────────────────────────────────
-  if (!rest) {
-    hintEl.innerHTML = spanOk(local + '@') + spanMiss('gmail.com') +
-      msg('warn', 'Type your domain (e.g. gmail.com)');
-    return;
-  }
-
-  // ── Has domain, check for dot ────────────────────────────────────
-  if (dotIdx === -1) {
-    // No dot in domain — show domain typed and suggest .com
-    const suggestion = suggestProvider(rest);
-    if (suggestion) {
-      const [okPart, badPart, fixPart] = diffStr(rest, suggestion);
-      hintEl.innerHTML = spanOk(local + '@') + okPart + badPart + spanMiss(fixPart + '.com') +
-        msg('err', `Did you mean ${local}@${suggestion}.com?`);
-    } else {
-      hintEl.innerHTML = spanOk(local + '@' + rest) + spanMiss('.com') +
-        msg('warn', 'Add a TLD like .com or .in');
-    }
-    return;
-  }
-
-  const domainName = rest.slice(0, dotIdx);   // e.g. "gmail"
-  const tld        = rest.slice(dotIdx + 1);  // e.g. "com"
-
-  // ── Check domainName for typos against known providers ───────────
-  const suggestion = suggestProvider(domainName);
-  const providerOk = ALLOWED_PROVIDERS.includes(domainName.toLowerCase());
-
-  // ── Check TLD ───────────────────────────────────────────────────
-  const validTLDs = ['com','in','org','net','edu','gov','io','co','uk','au','de','fr','me'];
-  const tldOk = validTLDs.includes(tld.toLowerCase()) || (tld.length >= 2 && tld.length <= 6 && /^[a-zA-Z]+$/.test(tld));
-
-  let domainHtml = '';
-  let tldHtml    = '';
-  let statusMsg  = '';
-
-  if (!providerOk && suggestion) {
-    // Typo in domain name — highlight char differences
-    const [okPart, badPart] = diffStr(domainName, suggestion);
-    const fixNeeded = suggestion.slice(okPart.replace(/<[^>]+>/g,'').length);
-    domainHtml = okPart + (badPart ? badPart : '') + (fixNeeded ? spanMiss(fixNeeded) : '');
-    statusMsg  = msg('err', `Did you mean @${suggestion}.com? Check highlighted characters`);
-  } else if (!providerOk && domainName.length >= 3) {
-    // Unknown provider but plausible — show in green (custom domain)
-    domainHtml = spanOk(domainName);
-    statusMsg  = msg('warn', 'Unknown provider — double-check your domain');
-  } else {
-    domainHtml = spanOk(domainName);
-  }
-
-  if (!tld) {
-    tldHtml   = spanMiss('com');
-    statusMsg = msg('warn', 'Add a TLD like .com');
-  } else if (!tldOk) {
-    tldHtml   = spanBad(tld);
-    statusMsg = msg('err', 'Invalid TLD — use .com, .in, .org etc.');
-  } else {
-    tldHtml   = spanOk(tld);
-    if (!statusMsg) statusMsg = msg('ok', '✓ Email looks valid');
-  }
-
-  hintEl.innerHTML =
-    spanOk(local + '@') + domainHtml + spanOk('.') + tldHtml + statusMsg;
-}
-
-function spanOk(s)   { return s ? `<span class="eh-ok">${escHtml(s)}</span>` : ''; }
-function spanBad(s)  { return s ? `<span class="eh-bad">${escHtml(s)}</span>` : ''; }
-function spanMiss(s) { return s ? `<span class="eh-miss">[${escHtml(s)}]</span>` : ''; }
-function msg(type, text) { return `<span class="eh-msg ${type}-msg">${escHtml(text)}</span>`; }
-
-// Returns closest known provider if within edit distance 2, else null
-function suggestProvider(input) {
-  const s = input.toLowerCase();
-  if (ALLOWED_PROVIDERS.includes(s)) return null; // exact match, no suggestion needed
-  let best = null, bestDist = 3;
-  for (const p of ALLOWED_PROVIDERS) {
-    const d = editDistance(s, p);
-    if (d < bestDist) { bestDist = d; best = p; }
-  }
-  return best;
-}
-
-// Returns [okSpan, badSpan] comparing typed vs target char by char
-function diffStr(typed, target) {
-  let ok = '', bad = '';
-  let i = 0;
-  // Find common prefix
-  while (i < typed.length && i < target.length && typed[i].toLowerCase() === target[i].toLowerCase()) {
-    ok += typed[i]; i++;
-  }
-  bad = typed.slice(i); // remaining wrong chars
-  return [spanOk(ok), bad ? spanBad(bad) : ''];
-}
-
-function editDistance(a, b) {
-  const dp = Array.from({length: a.length + 1}, (_, i) =>
-    Array.from({length: b.length + 1}, (_, j) => i === 0 ? j : j === 0 ? i : 0));
-  for (let i = 1; i <= a.length; i++)
-    for (let j = 1; j <= b.length; j++)
-      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
-  return dp[a.length][b.length];
-}
+// Indian mobile validation: 10 digits, starts with 6-9
 function isValidPhone(phone) {
   if (!phone) return true;
   const cleaned = phone.replace(/[\s\-\+]/g, "");
@@ -336,10 +180,8 @@ async function register() {
   const role     = document.getElementById('reg-role').value;
   const errors   = [];
   if (!name)                    errors.push('Name is required');
-  else if (!/^[A-Za-z\s']+$/.test(name)) errors.push("Name must contain only letters and apostrophes (no numbers or special characters)");
   if (!email)                   errors.push('Email is required');
-  else if (!isValidEmail(email)) errors.push('Invalid email — please enter a valid address like you@gmail.com');
-  else if (!isStrictDomainEmail(email)) errors.push('Email domain looks invalid — please use a real email like you@gmail.com');
+  else if (!isValidEmail(email)) errors.push('Invalid email — e.g. mehran@gmail.com.com is not allowed. Use a real email like you@example.com');
   if (!password)                errors.push('Password is required');
   else if (password.length < 6) errors.push('Password must be at least 6 characters');
   const phoneErr = phoneError(phone);
@@ -366,8 +208,7 @@ async function registerOwner() {
   const password = document.getElementById('ow-password').value;
   const phone    = document.getElementById('ow-phone').value.trim();
   if (!name || !email || !password) return toast('Please fill all required fields','error');
-  if (!/^[A-Za-z\s']+$/.test(name)) return toast("Name must contain only letters and apostrophes — no numbers or special characters",'error');
-  if (!isValidEmail(email) || !isStrictDomainEmail(email)) return toast('Please enter a valid email address (e.g. you@gmail.com)','error');
+  if (!isValidEmail(email)) return toast('Please enter a valid email address','error');
   if (password.length < 6)  return toast('Password must be at least 6 characters','error');
   const owPhoneErr = phoneError(phone);
   if (owPhoneErr) return toast(owPhoneErr, 'error');
@@ -395,26 +236,7 @@ function logout() {
 function scrollToTop()        { hideDashboard(); document.getElementById('hero').scrollIntoView({ behavior:'smooth' }); }
 function scrollToVenues()     { hideDashboard(); setTimeout(()=>document.getElementById('venues-section').scrollIntoView({ behavior:'smooth' }), 50); }
 function scrollToFacilities() { hideDashboard(); setTimeout(()=>document.getElementById('facilities-section').scrollIntoView({ behavior:'smooth' }), 50); }
-function scrollToOwner() {
-  // Restore all hidden page sections
-  document.querySelectorAll('.hero,.search-section,.section,footer,.owner-section').forEach(el => el.style.display = '');
-  document.getElementById('dashboard').style.display = 'none';
-  const ownerEl   = document.getElementById('owner-section');
-  const formCard  = document.getElementById('owner-form-card');
-  if (ownerEl) ownerEl.style.display = 'block';
-  const target = formCard || ownerEl;
-  if (target) {
-    setTimeout(() => {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Briefly highlight the form card so the user knows where to look
-      if (formCard) {
-        formCard.style.transition = 'box-shadow 0.3s ease';
-        formCard.style.boxShadow  = '0 0 0 3px #C9A84C, 0 8px 40px rgba(201,168,76,0.4)';
-        setTimeout(() => { formCard.style.boxShadow = ''; }, 2000);
-      }
-    }, 60);
-  }
-}
+function scrollToOwner()      { hideDashboard(); setTimeout(()=>document.getElementById('owner-section').scrollIntoView({ behavior:'smooth' }), 50); }
 function scrollToReviews()    { hideDashboard(); setTimeout(()=>document.getElementById('reviews-section').scrollIntoView({ behavior:'smooth' }), 50); }
 
 function toggleMobileMenu() {
@@ -591,10 +413,10 @@ async function openBookingModal(venueId) {
   }
   currentVenue = v;
   try {
-    const titleEl = document.getElementById('venue-detail-modal-title');
+    const titleEl = document.getElementById('booking-modal-title');
     if (titleEl) titleEl.textContent = v.name;
     renderVenueDetailModal(v);
-    openModal('venue-detail-modal');
+    openModal('booking-modal');
   } catch(e) {
     console.error('renderVenueDetailModal crash:', e);
     toast('UI error rendering venue: ' + (e?.message || String(e)), 'error');
@@ -660,7 +482,7 @@ function renderVenueDetailModal(v) {
     hotelHtml = '<div class="form-field"><label class="form-label">Catering Hotel Preference</label><select class="form-input" id="bk-catering-hotel"><option value="">No preference</option>' + opts + '</select></div>';
   }
 
-  document.getElementById('venue-detail-body').innerHTML =
+  document.getElementById('booking-body').innerHTML =
     galleryHtml +
     '<div class="vd-info">' +
       '<div class="vd-meta">' +
@@ -682,9 +504,10 @@ function renderVenueDetailModal(v) {
       '<div style="background:rgba(139,58,42,0.07);border:1px solid rgba(139,58,42,0.2);border-radius:6px;padding:8px 14px;font-size:0.8rem;color:var(--brick);margin-bottom:12px">📅 <strong>Note:</strong> Same-day bookings are not allowed. Please select a future date.</div>' +
       '<div class="booking-grid">' +
         '<div class="form-field"><label class="form-label">Event Date *</label><input class="form-input" type="date" id="bk-date" min="' + minDate + '" onchange="refreshSlots()" /></div>' +
-        '<div class="form-field"><label class="form-label">Duration</label><select class="form-input" id="bk-hours" onchange="calcBookingPrice()"><option value="1">1 Hour</option><option value="2">2 Hours</option><option value="3">3 Hours</option><option value="4">4 Hours</option></select></div>' +
+        '<div class="form-field"><label class="form-label">Duration *</label><select class="form-input" id="bk-hours" onchange="calcBookingPrice();refreshSlots()"><option value="1">1 Hour</option><option value="2">2 Hours</option><option value="3">3 Hours</option><option value="4">4 Hours</option><option value="5">5 Hours</option><option value="6">6 Hours</option><option value="7">7 Hours</option></select></div>' +
       '</div>' +
-      '<div class="form-field"><label class="form-label">Time Slot *</label><div class="slot-options" id="bk-slots"><span style="color:var(--muted);font-size:0.85rem">Select a date first to see available slots</span></div><input type="text" id="bk-slot-val" style="display:none" /></div>' +
+      '<div style="background:rgba(74,94,79,0.08);border:1px solid rgba(74,94,79,0.25);border-radius:6px;padding:9px 14px;font-size:0.82rem;color:#4a5e4f;margin-bottom:10px">🕐 <strong>Open:</strong> ' + (v.openTime||'09:00') + ' – ' + (v.closeTime||'22:00') + ' · Slots auto-generate based on duration</div>' +
+      '<div class="form-field"><label class="form-label">Select Start Time * <span style="font-size:0.75rem;color:var(--muted)">(end time auto-set)</span></label><div class="slot-options" id="bk-slots"><span style="color:var(--muted);font-size:0.85rem">Select a date to see available slots</span></div><div id="bk-end-display" style="margin-top:5px;min-height:18px"></div><input type="text" id="bk-slot-val" style="display:none" /></div>' +
       '<div class="booking-grid">' +
         '<div class="form-field"><label class="form-label">Number of Guests *</label><input class="form-input" type="number" id="bk-guests" placeholder="' + v.capacity + '" min="1" max="' + v.capacity + '" onchange="calcBookingPrice()" /></div>' +
         '<div class="form-field"><label class="form-label">Event Type</label><select class="form-input" id="bk-event"><option>Wedding</option><option>Corporate</option><option>Birthday</option><option>Anniversary</option><option>Exhibition</option><option>Other</option></select></div>' +
@@ -706,46 +529,89 @@ function setMainPhoto(src, thumb) {
 
 
 
+// ── TIME HELPERS ───────────────────────────────────────────────
+function timeToMins(t) {
+  if (!t) return 0;
+  const [h,m] = t.split(':').map(Number);
+  return h*60+m;
+}
+function minsToTime(m) {
+  return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+}
+function getStartTimes(openTime, closeTime, durationHrs) {
+  const openM  = timeToMins(openTime  || '09:00');
+  const closeM = timeToMins(closeTime || '22:00');
+  const durM   = durationHrs * 60;
+  const out = [];
+  for (let m = openM; m + durM <= closeM; m += 60) out.push(minsToTime(m));
+  return out;
+}
+function updateHoursPreview(prefix) {
+  const open  = document.getElementById(prefix+'-open-time')?.value;
+  const close = document.getElementById(prefix+'-close-time')?.value;
+  const el    = document.getElementById(prefix+'-hours-preview');
+  if (!el) return;
+  if (open && close && timeToMins(close) > timeToMins(open)) {
+    const hrs = (timeToMins(close)-timeToMins(open))/60;
+    el.innerHTML = '🕐 Open <strong>'+open+'–'+close+'</strong> · <strong>'+hrs+' hrs</strong> window';
+    el.style.color = '#4a5e4f';
+  } else if (open && close) {
+    el.textContent = '⚠️ Closing time must be after opening time';
+    el.style.color = '#ef4444';
+  } else { el.textContent = ''; }
+}
+
 function refreshSlots() {
   const v = currentVenue;
   if (!v) return;
   const date = document.getElementById('bk-date')?.value;
-  const slotsContainer = document.getElementById('bk-slots');
-  if (!date) { slotsContainer.innerHTML = `<span style="color:var(--muted);font-size:0.85rem">Select a date first</span>`; return; }
+  const sc   = document.getElementById('bk-slots');
+  const endD = document.getElementById('bk-end-display');
+  document.getElementById('bk-slot-val').value = '';
+  if (endD) endD.innerHTML = '';
 
-  // Block today
+  if (!date) {
+    sc.innerHTML = '<span style="color:var(--muted);font-size:0.85rem">Select a date to see available slots</span>';
+    return;
+  }
   const today = new Date().toISOString().split('T')[0];
   if (date === today) {
-    slotsContainer.innerHTML = `<div class="slot-blocked-msg">⚠️ Same-day bookings are not allowed. Please select a future date.</div>`;
-    document.getElementById('bk-slot-val').value = '';
+    sc.innerHTML = '<div class="slot-blocked-msg">⚠️ Same-day bookings not allowed. Select a future date.</div>';
     return;
   }
 
-  document.getElementById('bk-slot-val').value = '';
-  const availableSlots = (v.slots || []).filter(s => s.available);
-  if (!availableSlots.length) {
-    slotsContainer.innerHTML = `<span style="color:var(--muted);font-size:0.85rem">No slots defined — any time can be requested</span>`;
+  const hours     = parseInt(document.getElementById('bk-hours')?.value || 1);
+  const openTime  = v.openTime  || '09:00';
+  const closeTime = v.closeTime || '22:00';
+  const starts    = getStartTimes(openTime, closeTime, hours);
+
+  if (!starts.length) {
+    sc.innerHTML = '<div class="slot-blocked-msg">⚠️ No '+hours+'-hr slots fit within '+openTime+'–'+closeTime+'. Try shorter duration.</div>';
     return;
   }
 
-  slotsContainer.innerHTML = availableSlots.map(s => {
-    const isBlocked = (s.blockedDates || []).includes(date);
-    if (isBlocked) {
-      return `<button class="slot-btn blocked" disabled title="This slot is already booked for ${date}">🔒 ${s.time}</button>`;
-    }
-    return `<button class="slot-btn" onclick="selectSlot(this,'${s.time}')">${s.time}</button>`;
+  const blocked    = new Set(v.blockedRanges || []);
+  const dayBlocked = blocked.has(date);
+  const legacyBlk  = new Set();
+  (v.slots||[]).forEach(s => { if ((s.blockedDates||[]).includes(date)) legacyBlk.add(s.time); });
+
+  sc.innerHTML = starts.map(function(start) {
+    const end   = minsToTime(timeToMins(start) + hours*60);
+    const key   = date+'|'+start+'-'+end;
+    const label = start+' – '+end;
+    const isBlk = dayBlocked || blocked.has(key) || legacyBlk.has(start);
+    if (isBlk) return '<button class="slot-btn blocked" disabled>🔒 '+label+'</button>';
+    return '<button class="slot-btn" onclick="selectSlot(this,\''+start+'\',\''+end+'\')">'+label+'</button>';
   }).join('');
-
-  const allBlocked = availableSlots.every(s => (s.blockedDates||[]).includes(date));
-  if (allBlocked) {
-    slotsContainer.innerHTML += `<div class="slot-blocked-msg">⚠️ All slots are booked for this date. Please try another date.</div>`;
-  }
 }
 
-function selectSlot(btn, time) {
+function selectSlot(btn, startTime, endTime) {
   document.querySelectorAll('#bk-slots .slot-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
-  document.getElementById('bk-slot-val').value = time;
+  document.getElementById('bk-slot-val').value = startTime;
+  const d = document.getElementById('bk-end-display');
+  if (d) d.innerHTML = '<span style="color:#4a5e4f;font-weight:600;font-size:0.84rem">✅ '+startTime+' – '+endTime+'</span>';
+  calcBookingPrice();
 }
 
 function toggleFacility(btn) { btn.classList.toggle('selected'); }
@@ -808,7 +674,7 @@ async function confirmBooking() {
       facilities, cateringType: catering,
       basePrice: base, addonPrice: addon, plateCharges: plateChg, total,
     }});
-    closeModal('venue-detail-modal');
+    closeModal('booking-modal');
     showBookingPendingNotice(booking, v);
   } catch(e) {
     const errs = e.errors || [e.error || 'Booking failed'];
@@ -1288,47 +1154,98 @@ async function updateBookingStatus(id, status) {
 async function loadSlotManager() {
   const container = document.getElementById('slot-manager-content');
   try {
-    const stats    = await api('/owner/stats');
-    const venues   = stats.venues || [];
-    const bookings = stats.bookings || [];
+    const stats  = await api('/owner/stats');
+    const venues = stats.venues || [];
     if (!venues.length) {
-      container.innerHTML = `<div class="error-state"><div class="error-icon">🏛️</div><h3>No venues yet</h3><p>Add a venue first to manage its slots.</p><button class="btn-ghost" onclick="switchPanel('add-venue')">Add Venue →</button></div>`;
+      container.innerHTML = `<div class="error-state"><div class="error-icon">🏛️</div><h3>No venues yet</h3><button class="btn-ghost" onclick="switchPanel('add-venue')">Add Venue →</button></div>`;
       return;
     }
+    window._smVenues = venues;
+    const today = new Date().toISOString().split('T')[0];
     container.innerHTML = venues.map(venue => {
-      const slots = venue.slots || [];
-      if (!slots.length) {
-        return `<div class="slot-manager-card"><div class="slot-manager-name">🏛️ ${escHtml(venue.name)}</div><div class="slot-manager-meta">${escHtml(venue.location)} · ${venue.capacity} guests</div><p style="color:var(--muted);font-size:0.82rem">No time slots defined. <button class="btn-sm btn-sm-ghost" onclick="openEditVenue('${venue._id}')">Edit venue to add slots →</button></p></div>`;
-      }
-      const confirmedSlots = bookings.filter(b => String(b.venueId) === String(venue._id) && (b.status === 'confirmed' || b.status === 'paid')).map(b => b.startTime);
-      const slotBtns = slots.map(s => {
-        const isBookedToday = confirmedSlots.includes(s.time);
-        if (isBookedToday) return `<button class="slot-toggle-btn slot-booked" title="Booked — cannot toggle">🔒 ${escHtml(s.time)}</button>`;
-        const cls = s.available ? 'slot-on' : 'slot-off';
-        const lbl = s.available ? '✅' : '🚫';
-        return `<button class="slot-toggle-btn ${cls}" onclick="toggleVenueSlot('${venue._id}','${s._id||s.time}',this)">${lbl} ${escHtml(s.time)}</button>`;
-      }).join('');
+      const vid   = venue._id;
+      const open  = venue.openTime  || '09:00';
+      const close = venue.closeTime || '22:00';
+      const isBlocked = venue.blocked;
       return `<div class="slot-manager-card">
         <div class="slot-manager-name">🏛️ ${escHtml(venue.name)}</div>
-        <div class="slot-manager-meta">${escHtml(venue.location)} · ${venue.capacity} guests capacity</div>
-        <div style="font-size:0.78rem;color:var(--muted);margin-bottom:10px">✅ = Available &nbsp; 🚫 = Blocked &nbsp; 🔒 = Booked (auto-locked)</div>
-        <div class="slot-manager-slots">${slotBtns}</div>
+        <div class="slot-manager-meta" style="margin-bottom:12px">${escHtml(venue.location)} · 🕐 ${open}–${close} · ${venue.capacity} guests</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;background:${isBlocked?'#fee2e2':'rgba(74,94,79,0.06)'};border-radius:8px;margin-bottom:14px;border:1px solid ${isBlocked?'#fca5a5':'rgba(74,94,79,0.2)'}">
+          <span style="font-weight:700;font-size:0.88rem">${isBlocked?'🔴 Venue Blocked — Out of Service':'🟢 Venue Open for Booking'}</span>
+          ${isBlocked
+            ? `<button class="btn-sm btn-sm-success" onclick="toggleVenueBlock('${vid}',false)">✅ Unblock Venue</button>`
+            : `<button class="btn-sm btn-sm-danger"  onclick="toggleVenueBlock('${vid}',true)">🚫 Block Entire Venue</button>`}
+        </div>
+        <div style="background:var(--card-bg,#fff);border:1px solid var(--border,#e5e5e5);border-radius:8px;padding:14px">
+          <div style="font-weight:600;font-size:0.88rem;margin-bottom:10px">🗓️ Block / Unblock slots by date</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+            <input type="date" id="sm-date-${vid}" min="${today}"
+              style="border:1px solid var(--border,#d1c4b0);border-radius:6px;padding:6px 10px;font-size:0.83rem;background:var(--card-bg,#fff);height:36px"
+              onchange="renderSmGrid('${vid}')" />
+            <select id="sm-dur-${vid}"
+              style="border:1px solid var(--border,#d1c4b0);border-radius:6px;padding:5px 10px;font-size:0.83rem;background:var(--card-bg,#fff);height:36px"
+              onchange="renderSmGrid('${vid}')">
+              <option value="1">1 hr</option><option value="2">2 hr</option><option value="3">3 hr</option>
+              <option value="4">4 hr</option><option value="5">5 hr</option><option value="6">6 hr</option><option value="7">7 hr</option>
+            </select>
+          </div>
+          <div id="sm-grid-${vid}" style="display:flex;flex-wrap:wrap;gap:8px">
+            <span style="color:var(--muted);font-size:0.82rem">Select a date above to see slots</span>
+          </div>
+        </div>
       </div>`;
     }).join('');
   } catch(e) {
-    container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><h3>Failed to load slot manager</h3><button class="btn-ghost" onclick="loadSlotManager()">Retry</button></div>`;
+    container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><h3>Failed to load</h3><button class="btn-ghost" onclick="loadSlotManager()">Retry</button></div>`;
   }
 }
 
-async function toggleVenueSlot(venueId, slotId, btn) {
-  const isOn  = btn.classList.contains('slot-on');
-  const newAvail = !isOn;
+function renderSmGrid(venueId) {
+  const venue = (window._smVenues||[]).find(v => String(v._id)===String(venueId));
+  if (!venue) return;
+  const date   = document.getElementById('sm-date-'+venueId)?.value;
+  const dur    = parseInt(document.getElementById('sm-dur-'+venueId)?.value||1);
+  const grid   = document.getElementById('sm-grid-'+venueId);
+  if (!date) { grid.innerHTML='<span style="color:var(--muted);font-size:0.82rem">Select a date first</span>'; return; }
+  const starts = getStartTimes(venue.openTime||'09:00', venue.closeTime||'22:00', dur);
+  if (!starts.length) { grid.innerHTML='<span style="color:#ef4444;font-size:0.82rem">No '+dur+'-hr slots fit in '+(venue.openTime||'09:00')+'–'+(venue.closeTime||'22:00')+'</span>'; return; }
+  const blocked    = new Set(venue.blockedRanges||[]);
+  const dayBlocked = blocked.has(date);
+  grid.innerHTML = starts.map(start => {
+    const end   = minsToTime(timeToMins(start)+dur*60);
+    const key   = date+'|'+start+'-'+end;
+    const label = start+'–'+end;
+    const isBlk = dayBlocked || blocked.has(key);
+    if (isBlk) return `<button class="slot-toggle-btn slot-off" style="font-size:0.82rem;padding:5px 12px" onclick="smToggle('${venueId}','${date}','${start}','${end}',false,this)">🔒 ${label}</button>`;
+    return `<button class="slot-toggle-btn slot-on" style="font-size:0.82rem;padding:5px 12px" onclick="smToggle('${venueId}','${date}','${start}','${end}',true,this)">✅ ${label}</button>`;
+  }).join('');
+}
+
+async function smToggle(venueId, date, start, end, currentlyOpen, btn) {
+  const block = currentlyOpen;
+  btn.disabled = true;
   try {
-    await api(`/venues/${venueId}/slots/${slotId}`, { method:'PATCH', body: { available: newAvail } });
-    if (newAvail) { btn.className = 'slot-toggle-btn slot-on'; btn.textContent = '✅ ' + btn.textContent.replace(/^[^\s]+\s/, ''); }
-    else          { btn.className = 'slot-toggle-btn slot-off'; btn.textContent = '🚫 ' + btn.textContent.replace(/^[^\s]+\s/, ''); }
-    toast(`Slot ${newAvail ? 'activated' : 'blocked'}`, 'info');
-  } catch(e) { toast('Failed to update slot','error'); }
+    await api('/venues/'+venueId+'/block-range', { method:'PATCH', body:{ date, timeRange:start+'-'+end, blocked:block } });
+    const v = (window._smVenues||[]).find(x=>String(x._id)===String(venueId));
+    if (v) {
+      if (!v.blockedRanges) v.blockedRanges=[];
+      const key=date+'|'+start+'-'+end;
+      if (block) { if(!v.blockedRanges.includes(key)) v.blockedRanges.push(key); }
+      else v.blockedRanges=v.blockedRanges.filter(r=>r!==key);
+    }
+    toast(block?'🔒 '+start+'–'+end+' blocked':'🔓 '+start+'–'+end+' unblocked', block?'info':'success');
+    renderSmGrid(venueId);
+  } catch(e) { btn.disabled=false; toast('Error: '+(e.error||e.message||''), 'error'); }
+}
+
+async function toggleVenueBlock(venueId, block) {
+  try {
+    await api('/venues/'+venueId+'/block', { method:'PATCH', body:{ blocked:block } });
+    const v=(window._smVenues||[]).find(x=>String(x._id)===String(venueId));
+    if(v) v.blocked=block;
+    toast(block?'🚫 Venue blocked':'✅ Venue unblocked', block?'info':'success');
+    loadSlotManager(); loadVenues();
+  } catch(e) { toast('Error: '+(e.error||e.message||''), 'error'); }
 }
 
 // ─── OWNER: VENUES ────────────────────────────────────────────────
@@ -1395,6 +1312,7 @@ function removeGalleryPreview(btn, prefix, idx) {
 // ─── SLOT MANAGER (add/edit venue) ───────────────────────────────
 function renderSlots(prefix, slots) {
   const grid = document.getElementById(prefix + '-slots-grid');
+  if (!grid) return;
   grid.innerHTML = slots.map((s, i) => `
     <div class="slot-chip ${s.available ? 'active' : 'inactive'}" onclick="toggleSlot('${prefix}',${i})" title="${s.available ? 'Click to deactivate' : 'Click to activate'}">
       ${s.time}<span onclick="event.stopPropagation();removeSlot('${prefix}',${i})" style="margin-left:6px;opacity:0.7">✕</span>
@@ -1402,6 +1320,7 @@ function renderSlots(prefix, slots) {
 }
 function addSlot(prefix) {
   const timeInput = document.getElementById(prefix + '-slot-time');
+  if (!timeInput) return;
   const time = timeInput.value; if (!time) return;
   const slots = prefix === 'av' ? avSlots : evSlots;
   if (slots.find(s => s.time === time)) { toast('Slot already added','info'); return; }
@@ -1477,7 +1396,9 @@ async function submitAddVenue() {
     fd.append('price1hr',    document.getElementById('av-price1').value);
     fd.append('price2hr',    document.getElementById('av-price2').value || '0');
     fd.append('platePrice',  document.getElementById('av-plate').value || '0');
-    fd.append('slots',       JSON.stringify(avSlots));
+    fd.append('slots',       JSON.stringify([]));
+    fd.append('openTime',    document.getElementById('av-open-time')?.value || '09:00');
+    fd.append('closeTime',   document.getElementById('av-close-time')?.value || '22:00');
     fd.append('cateringHotels', JSON.stringify(getHotelList('av')));
     fd.append('amenities',   JSON.stringify(getAmenities('av-amenity-tbody')));
     if (avCoverFile) fd.append('coverImage', avCoverFile);
@@ -1500,7 +1421,7 @@ function resetAddVenueForm() {
   avCoverFile = null; avGalleryFiles = []; avSlots = [];
   document.getElementById('av-cover-preview').innerHTML = '';
   document.getElementById('av-gallery-previews').innerHTML = '';
-  document.getElementById('av-slots-grid').innerHTML = '';
+  const _sg=document.getElementById('av-slots-grid'); if(_sg)_sg.innerHTML='';
   document.getElementById('av-hotels').innerHTML = '';
   clearErrors('av-errors');
 }
@@ -1521,26 +1442,31 @@ async function openEditVenue(venueId) {
     document.getElementById('ev-plate').value    = v.platePrice || 0;
     document.getElementById('ev-desc').value     = v.description || '';
     const coverDiv = document.getElementById('ev-current-cover');
-    coverDiv.innerHTML = v.coverImage
+    if (coverDiv) coverDiv.innerHTML = v.coverImage
       ? `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--cream);border-radius:6px;border:1px solid var(--border)"><img src="${imgUrl(v.coverImage)}" style="width:80px;height:60px;object-fit:cover;border-radius:4px" onerror="this.style.display='none'" /><div><div style="font-size:0.82rem;font-weight:600">Current Cover</div><div style="font-size:0.72rem;color:var(--muted)">${v.coverImage}</div></div></div>`
       : `<div style="font-size:0.82rem;color:var(--muted)">No cover image set</div>`;
     document.getElementById('ev-cover-preview').innerHTML = '';
     const existingGallery = document.getElementById('ev-existing-gallery');
-    existingGallery.innerHTML = (v.images || []).length
+    if (existingGallery) existingGallery.innerHTML = (v.images || []).length
       ? v.images.map(fn => `<div class="gallery-item" id="eg-${fn.replace(/\./g,'_')}"><img src="${imgUrl(fn)}" alt="venue image" onerror="this.style.display='none'" /><button class="remove-img-btn" onclick="removeExistingImage('${fn}',this)">✕ Remove</button></div>`).join('')
       : `<div style="color:var(--muted);font-size:0.85rem">No gallery images yet</div>`;
     document.getElementById('ev-gallery-previews').innerHTML = '';
     evSlots = JSON.parse(JSON.stringify(v.slots || []));
     renderSlots('ev', evSlots);
+    const _ot=document.getElementById('ev-open-time'); if(_ot)_ot.value=v.openTime||'09:00';
+    const _ct=document.getElementById('ev-close-time'); if(_ct)_ct.value=v.closeTime||'22:00';
+    updateHoursPreview('ev');
     document.getElementById('ev-hotels').innerHTML = '';
     (v.cateringHotels || []).forEach(h => addHotelField('ev', h));
     const tbody = document.getElementById('ev-amenity-tbody');
+    if (tbody) {
     tbody.innerHTML = '';
     (v.amenities || []).forEach(a => {
       const tr = document.createElement('tr'); tr.dataset.key = a.key || 'am_' + Date.now();
       tr.innerHTML = `<td>${escHtml(a.label)}</td><td><input class="price-field" type="number" value="${a.price||0}" min="0" /></td><td><button class="remove-amenity-btn" onclick="removeAmenityRow(this)">✕</button></td>`;
       tbody.appendChild(tr);
     });
+    }
     document.getElementById('edit-venue-nav').style.display = '';
     clearErrors('ev-errors');
     switchPanel('edit-venue', document.getElementById('edit-venue-nav'));
@@ -1571,6 +1497,8 @@ async function submitEditVenue() {
     fd.append('price2hr',    document.getElementById('ev-price2').value || '0');
     fd.append('platePrice',  document.getElementById('ev-plate').value || '0');
     fd.append('slots',       JSON.stringify(evSlots));
+    fd.append('openTime',    document.getElementById('ev-open-time')?.value || '09:00');
+    fd.append('closeTime',   document.getElementById('ev-close-time')?.value || '22:00');
     fd.append('cateringHotels', JSON.stringify(getHotelList('ev')));
     fd.append('amenities',   JSON.stringify(getAmenities('ev-amenity-tbody')));
     if (evRemovedImages.length) fd.append('removeImages', JSON.stringify(evRemovedImages));

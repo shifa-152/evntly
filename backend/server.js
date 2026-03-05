@@ -50,6 +50,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/evntly')
 // ═════════════════════════════════════════════════════════════════════════════
 const slotSchema = new mongoose.Schema({
   time:         { type: String, required: true },
+  endTime:      { type: String, default: '' },
   available:    { type: Boolean, default: true },
   blockedDates: [{ type: String }],
 });
@@ -67,6 +68,10 @@ const venueSchema = new mongoose.Schema({
   coverImage:     { type: String, default: '' },
   images:         [{ type: String }],
   slots:          [slotSchema],
+  openTime:       { type: String, default: '09:00' },
+  closeTime:      { type: String, default: '22:00' },
+  blocked:        { type: Boolean, default: false },
+  blockedRanges:  [{ type: String }],
   amenities:      [{ key: String, label: String, price: Number }],
   ownerId:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   ownerName:      { type: String },
@@ -233,7 +238,7 @@ app.post('/api/venues', ownerMiddleware, upload.fields([
 ]), async (req, res) => {
   try {
     const { name, type, location, description, capacity, price1hr, price2hr, platePrice,
-            cateringHotels, slots, amenities } = req.body;
+            cateringHotels, slots, amenities, openTime, closeTime } = req.body;
 
     const errors = [];
     if (!name?.trim())      errors.push('Venue name is required');
@@ -267,6 +272,8 @@ app.post('/api/venues', ownerMiddleware, upload.fields([
       coverImage: coverImageFile,
       images:    imageFiles,
       slots:     slots     ? JSON.parse(slots)     : [],
+      openTime:  openTime  || '',
+      closeTime: closeTime || '',
       amenities: amenities ? JSON.parse(amenities) : [],
       ownerId:   req.user.id,
       ownerName: owner?.name || req.user.name,
@@ -293,7 +300,7 @@ app.put('/api/venues/:id', ownerMiddleware, upload.fields([
       return res.status(403).json({ error: 'You do not own this venue' });
 
     const { name, type, location, description, capacity, price1hr, price2hr, platePrice,
-            cateringHotels, slots, amenities, removeImages } = req.body;
+            cateringHotels, slots, amenities, removeImages, openTime, closeTime } = req.body;
 
     // Validation
     const errors = [];
@@ -337,6 +344,8 @@ app.put('/api/venues/:id', ownerMiddleware, upload.fields([
     venue.platePrice = pp;
     if (cateringHotels !== undefined) venue.cateringHotels = JSON.parse(cateringHotels);
     if (slots          !== undefined) venue.slots           = JSON.parse(slots);
+    if (openTime       !== undefined) venue.openTime        = openTime;
+    if (closeTime      !== undefined) venue.closeTime       = closeTime;
     if (amenities      !== undefined) venue.amenities       = JSON.parse(amenities);
 
     await venue.save();
@@ -540,6 +549,48 @@ app.patch('/api/bookings/:id/payment', authMiddleware, async (req, res) => {
       b.status        = 'paid';
     }
     await b.save();
+    res.json(b);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── BLOCK ENTIRE VENUE ───────────────────────────────────────────────────────
+app.patch('/api/venues/:id/block', ownerMiddleware, async (req, res) => {
+  try {
+    const venue = await Venue.findOne({ _id: req.params.id, ownerId: req.user.id });
+    if (!venue) return res.status(404).json({ error: 'Venue not found or not yours' });
+    venue.blocked = !!req.body.blocked;
+    await venue.save();
+    res.json({ ok: true, blocked: venue.blocked });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── BLOCK / UNBLOCK A DATE+TIME-RANGE ────────────────────────────────────────
+// body: { date: "YYYY-MM-DD", timeRange: "HH:MM-HH:MM", blocked: true/false }
+app.patch('/api/venues/:id/block-range', ownerMiddleware, async (req, res) => {
+  try {
+    const venue = await Venue.findOne({ _id: req.params.id, ownerId: req.user.id });
+    if (!venue) return res.status(404).json({ error: 'Venue not found or not yours' });
+    const { date, timeRange, blocked } = req.body;
+    if (!date) return res.status(400).json({ error: 'date required' });
+    const key = timeRange ? date + '|' + timeRange : date;
+    if (!venue.blockedRanges) venue.blockedRanges = [];
+    if (blocked) {
+      if (!venue.blockedRanges.includes(key)) venue.blockedRanges.push(key);
+    } else {
+      venue.blockedRanges = venue.blockedRanges.filter(r => r !== key);
+    }
+    venue.markModified('blockedRanges');
+    await venue.save();
+    res.json({ ok: true, blockedRanges: venue.blockedRanges });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── SUGGEST ALTERNATE SLOT ────────────────────────────────────────────────────
+app.patch('/api/bookings/:id/suggest', ownerMiddleware, async (req, res) => {
+  try {
+    const { suggestedSlot } = req.body;
+    const b = await Booking.findByIdAndUpdate(req.params.id, { suggestedSlot }, { new: true });
+    if (!b) return res.status(404).json({ error: 'Booking not found' });
     res.json(b);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
