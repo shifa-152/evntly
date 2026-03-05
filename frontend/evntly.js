@@ -30,18 +30,107 @@ function escHtml(s) { const d = document.createElement('div'); d.textContent = s
 function imgUrl(fn) { return fn ? `${_host}/uploads/${fn}` : ''; }
 
 // Strict email validation — rejects mehran@gmail.com.com style
-function isValidEmail(email) {
-  // Must have exactly one @, TLD must be 2-6 chars, no double dots, no double TLD
-  const re = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,6}$/;
-  if (!re.test(email)) return false;
-  const domain = email.split('@')[1];
-  // Reject if domain has consecutive dots or more than one dot-TLD pair (e.g. gmail.com.com)
-  if (/\.\./.test(domain)) return false;
+// ─── STRICT VALIDATORS ───────────────────────────────────────────
+function isValidEmail(email) { return emailError(email) === null; }
+
+// Returns null if valid, or an exact error string if invalid
+function emailError(email) {
+  if (!email) return 'Email is required';
+
+  // No spaces allowed anywhere
+  if (/\s/.test(email)) return 'Email cannot contain spaces';
+
+  // Must have exactly one @
+  const atCount = (email.match(/@/g) || []).length;
+  if (atCount === 0) return 'Email must contain @  — e.g. you@example.com';
+  if (atCount > 1)   return 'Email cannot contain more than one @';
+
+  const [local, domain] = email.split('@');
+
+  // ── LOCAL PART (before @) ──────────────────────────────────────
+  if (!local)                           return 'Email must have a username before @ — e.g. you@example.com';
+  if (local.length > 64)                return 'Username part before @ is too long (max 64 characters)';
+  if (local.startsWith('.'))            return 'Email username cannot start with a dot';
+  if (local.endsWith('.'))              return 'Email username cannot end with a dot';
+  if (/\.\./.test(local))              return 'Email username cannot have consecutive dots';
+  if (!/^[a-zA-Z0-9._%+\-]+$/.test(local))
+    return 'Email username contains invalid characters — only letters, digits, dots, _, %, +, - are allowed';
+
+  // ── DOMAIN PART (after @) ──────────────────────────────────────
+  if (!domain)                          return 'Email must have a domain after @ — e.g. you@gmail.com';
+  if (domain.length > 255)              return 'Email domain is too long';
+  if (!domain.includes('.'))            return 'Email domain must include a dot — e.g. gmail.com';
+  if (domain.startsWith('.'))           return 'Email domain cannot start with a dot';
+  if (domain.endsWith('.'))             return 'Email domain cannot end with a dot';
+  if (/\.\./.test(domain))             return 'Email domain cannot have consecutive dots';
+  if (domain.startsWith('-'))           return 'Email domain cannot start with a hyphen';
+  if (domain.endsWith('-'))             return 'Email domain cannot end with a hyphen';
+  if (!/^[a-zA-Z0-9.\-]+$/.test(domain))
+    return 'Email domain contains invalid characters';
+
   const parts = domain.split('.');
-  // If last two parts are both well-known TLDs (e.g. com.com), reject
-  const commonTLDs = ['com','net','org','edu','gov','io','co','in','uk','au','de','fr'];
-  if (parts.length >= 3 && commonTLDs.includes(parts[parts.length-1]) && commonTLDs.includes(parts[parts.length-2])) return false;
-  return true;
+  const tld   = parts[parts.length - 1];
+  const sld   = parts[parts.length - 2]; // second-level domain e.g. "gmail"
+
+  // TLD must be 2–6 letters only
+  if (!/^[a-zA-Z]{2,6}$/.test(tld))
+    return `".${tld}" is not a valid domain ending — use something like .com, .in, .org`;
+
+  // Detect repeated TLDs: com.com, com.com.com, net.net etc.
+  const knownTLDs = ['com','net','org','edu','gov','io','co','in','uk','au','de','fr','us','ca','nz','sg','ae','me','app','dev'];
+  const tldParts  = parts.filter(p => knownTLDs.includes(p.toLowerCase()));
+  if (tldParts.length >= 2)
+    return `Domain "${domain}" has repeated extensions — did you mean @${parts[0]}.${tld}?`;
+
+  // Catch common domain typos using known popular domains
+  const popularDomains = {
+    'gmail': ['gmai','gmial','gmali','gmal','gmil','gamil','gmaill','gmaol','gnail','gmaio','gmai1'],
+    'yahoo': ['yaho','yahooo','yahho','yaho0','yhoo','yhaoo'],
+    'hotmail': ['hotmai','hotmial','hotmali','hotmal','hotmil'],
+    'outlook': ['outook','outlok','outllok','otlook'],
+  };
+  const sldLower = sld.toLowerCase();
+  for (const [correct, typos] of Object.entries(popularDomains)) {
+    if (typos.includes(sldLower)) {
+      return `Did you mean @${correct}.${tld}? "${sld}" looks like a typo`;
+    }
+  }
+
+  // SLD must be at least 1 char
+  if (!sld || sld.length < 1)
+    return `Email domain "${domain}" is too short — please check it`;
+
+  return null; // all good
+}
+
+function isStrictEmail(email) { return emailError(email) === null; }
+function isValidName(name) {
+  // Letters (incl accented), spaces, apostrophes, hyphens only — no digits or symbols
+  return name.length >= 2 && /^[a-zA-Z\u00C0-\u024F' \-]+$/.test(name);
+}
+function isValidVenueName(name) {
+  // Venue names can have letters, digits, spaces and basic punctuation but no special chars
+  return name.length >= 2 && name.length <= 100 && /^[a-zA-Z0-9 ',\.\-&()]+$/.test(name);
+}
+function isValidLocation(loc) {
+  return loc.length >= 2 && loc.length <= 150;
+}
+function isValidPrice(val) {
+  const n = parseFloat(val);
+  return !isNaN(n) && n > 0 && n <= 10000000;
+}
+function isValidCapacity(val) {
+  const n = parseInt(val);
+  return !isNaN(n) && n >= 1 && n <= 100000;
+}
+function isValidPassword(pw) {
+  return pw.length >= 6 && pw.length <= 128;
+}
+function isValidComment(text) {
+  return text.length >= 5 && text.length <= 1000;
+}
+function isValidGuests(n, capacity) {
+  return n >= 1 && n <= capacity;
 }
 
 // Indian mobile validation: 10 digits, starts with 6-9
@@ -156,9 +245,11 @@ async function login() {
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   const errors   = [];
-  if (!email)                errors.push('Email is required');
-  else if (!isValidEmail(email)) errors.push('Please enter a valid email address');
-  if (!password)             errors.push('Password is required');
+  if (!email)                   errors.push('Email is required');
+  else { const _ee = emailError(email); if (_ee) errors.push(_ee); }
+  if (!password)                errors.push('Password is required');
+  else if (password.length < 6) errors.push('Password must be at least 6 characters');
+  else if (password.length > 128) errors.push('Password is too long');
   if (errors.length) return showErrors('login-errors','login-errors-list', errors);
   try {
     const data = await api('/auth/login', { method:'POST', body:{ email, password } });
@@ -187,11 +278,12 @@ async function register() {
   const phone    = document.getElementById('reg-phone').value.trim();
   const role     = document.getElementById('reg-role').value;
   const errors   = [];
-  if (!name)                    errors.push('Name is required');
-  if (!email)                   errors.push('Email is required');
-  else if (!isValidEmail(email)) errors.push('Invalid email — e.g. mehran@gmail.com.com is not allowed. Use a real email like you@example.com');
-  if (!password)                errors.push('Password is required');
-  else if (password.length < 6) errors.push('Password must be at least 6 characters');
+  if (!name)                      errors.push('Full name is required');
+  else if (!isValidName(name))    errors.push('Name can only contain letters, spaces, apostrophes or hyphens — no numbers or symbols');
+  if (!email)                     errors.push('Email is required');
+  else { const _ee = emailError(email); if (_ee) errors.push(_ee); }
+  if (!password)                  errors.push('Password is required');
+  else if (!isValidPassword(password)) errors.push('Password must be 6–128 characters');
   const phoneErr = phoneError(phone);
   if (phoneErr) errors.push(phoneErr);
   if (errors.length) return showErrors('reg-errors','reg-errors-list', errors);
@@ -210,22 +302,49 @@ async function register() {
   }
 }
 
+function owFieldError(id, msg) {
+  const el = document.getElementById(id + '-err');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+  document.getElementById(id)?.classList.toggle('ow-invalid', !!msg);
+}
+function owClearErrors() {
+  ['ow-name','ow-email','ow-password','ow-phone'].forEach(id => owFieldError(id, ''));
+}
 async function registerOwner() {
+  owClearErrors();
   const name     = document.getElementById('ow-name').value.trim();
   const email    = document.getElementById('ow-email').value.trim();
   const password = document.getElementById('ow-password').value;
   const phone    = document.getElementById('ow-phone').value.trim();
-  if (!name || !email || !password) return toast('Please fill all required fields','error');
-  if (!isValidEmail(email)) return toast('Please enter a valid email address','error');
-  if (password.length < 6)  return toast('Password must be at least 6 characters','error');
+  let hasError = false;
+  if (!name) {
+    owFieldError('ow-name', 'Full name is required'); hasError = true;
+  } else if (!isValidName(name)) {
+    owFieldError('ow-name', 'Name can only contain letters, spaces, apostrophes or hyphens — no numbers or special characters'); hasError = true;
+  }
+  if (!email) {
+    owFieldError('ow-email', 'Email is required'); hasError = true;
+  } else {
+    const _ee = emailError(email);
+    if (_ee) { owFieldError('ow-email', _ee); hasError = true; }
+  }
+  if (!password) {
+    owFieldError('ow-password', 'Password is required'); hasError = true;
+  } else if (!isValidPassword(password)) {
+    owFieldError('ow-password', 'Password must be 6–128 characters'); hasError = true;
+  }
   const owPhoneErr = phoneError(phone);
-  if (owPhoneErr) return toast(owPhoneErr, 'error');
+  if (owPhoneErr) { owFieldError('ow-phone', owPhoneErr); hasError = true; }
+  if (hasError) return;
   try {
     const data = await api('/auth/register', { method:'POST', body:{ name, email, password, phone, role:'owner' } });
     localStorage.setItem('evntly_token', data.token);
     localStorage.setItem('evntly_user',  JSON.stringify(data.user));
     currentUser = data.user;
     updateNavForUser();
+    owClearErrors();
     toast('Owner account created! 🎉', 'success');
     showDashboard();
   } catch(e) { toast(e.error || 'Registration failed','error'); }
@@ -427,10 +546,10 @@ async function openBookingModal(venueId) {
   }
   currentVenue = v;
   try {
-    const titleEl = document.getElementById('venue-detail-modal-title');
+    const titleEl = document.getElementById('booking-modal-title');
     if (titleEl) titleEl.textContent = v.name;
     renderVenueDetailModal(v);
-    openModal('venue-detail-modal');
+    openModal('booking-modal');
   } catch(e) {
     console.error('renderVenueDetailModal crash:', e);
     toast('UI error rendering venue: ' + (e?.message || String(e)), 'error');
@@ -496,7 +615,7 @@ function renderVenueDetailModal(v) {
     hotelHtml = '<div class="form-field"><label class="form-label">Catering Hotel Preference</label><select class="form-input" id="bk-catering-hotel"><option value="">No preference</option>' + opts + '</select></div>';
   }
 
-  document.getElementById('venue-detail-body').innerHTML =
+  document.getElementById('booking-body').innerHTML =
     galleryHtml +
     '<div class="vd-info">' +
       '<div class="vd-meta">' +
@@ -665,10 +784,12 @@ async function confirmBooking() {
 
   // Block today
   const today = new Date().toISOString().split('T')[0];
-  if (!date)             errors.push('Please select a date');
-  else if (date === today) errors.push('Same-day bookings are not allowed. Please select a future date.');
-  if (guests < 1) errors.push('Number of guests must be at least 1');
-  if (guests > v.capacity) errors.push(`Venue capacity is ${v.capacity} guests`);
+  if (!date)                errors.push('Please select an event date');
+  else if (date <= today)   errors.push('Same-day bookings are not allowed — please select a future date');
+  if (!slotVal || slotVal === 'Flexible') errors.push('Please select a time slot');
+  if (!guests || guests < 1)             errors.push('Number of guests must be at least 1');
+  else if (isNaN(guests))                errors.push('Guests must be a valid number');
+  else if (guests > v.capacity)          errors.push(`This venue fits max ${v.capacity} guests`);
   if (errors.length) return showErrors('bk-errors','bk-errors-list', errors);
 
   const facilities = [];
@@ -688,7 +809,7 @@ async function confirmBooking() {
       facilities, cateringType: catering,
       basePrice: base, addonPrice: addon, plateCharges: plateChg, total,
     }});
-    closeModal('venue-detail-modal');
+    closeModal('booking-modal');
     showBookingPendingNotice(booking, v);
   } catch(e) {
     const errs = e.errors || [e.error || 'Booking failed'];
@@ -1380,17 +1501,44 @@ function getAmenities(tbodyId) {
 
 // ─── VENUE FORM VALIDATION ────────────────────────────────────────
 function validateVenueForm(prefix) {
-  const name = document.getElementById(prefix + '-name').value.trim();
-  const loc  = document.getElementById(prefix + '-location').value.trim();
-  const cap  = parseInt(document.getElementById(prefix + '-capacity').value);
-  const p1   = parseFloat(document.getElementById(prefix + '-price1').value);
-  const pp   = parseFloat(document.getElementById(prefix + '-plate')?.value || 0);
+  const name  = document.getElementById(prefix + '-name').value.trim();
+  const loc   = document.getElementById(prefix + '-location').value.trim();
+  const cap   = parseInt(document.getElementById(prefix + '-capacity').value);
+  const p1    = parseFloat(document.getElementById(prefix + '-price1').value);
+  const p2    = parseFloat(document.getElementById(prefix + '-price2')?.value || 0);
+  const pp    = parseFloat(document.getElementById(prefix + '-plate')?.value || 0);
+  const open  = document.getElementById(prefix + '-open-time')?.value;
+  const close = document.getElementById(prefix + '-close-time')?.value;
   let ok = true;
-  ok = validateField(prefix+'-name',     prefix+'-name-err',  !!name,   'Venue name is required')      && ok;
-  ok = validateField(prefix+'-location', prefix+'-loc-err',   !!loc,    'Location is required')         && ok;
-  ok = validateField(prefix+'-capacity', prefix+'-cap-err',   cap >= 1, 'Capacity must be at least 1')  && ok;
-  ok = validateField(prefix+'-price1',   prefix+'-p1-err',    p1 > 0,   'Price must be greater than 0') && ok;
-  ok = validateField(prefix+'-plate',    prefix+'-plate-err', pp >= 0,  'Plate price must be ≥ 0')      && ok;
+  // Name: 2-100 chars, letters/digits/spaces/basic punctuation
+  if (!name)                    ok = validateField(prefix+'-name', prefix+'-name-err', false, 'Venue name is required') && ok;
+  else if (name.length < 2)     ok = validateField(prefix+'-name', prefix+'-name-err', false, 'Name must be at least 2 characters') && ok;
+  else if (name.length > 100)   ok = validateField(prefix+'-name', prefix+'-name-err', false, 'Name must be under 100 characters') && ok;
+  else if (!/^[a-zA-Z0-9 \'.,\-&()]+$/.test(name)) ok = validateField(prefix+'-name', prefix+'-name-err', false, 'Name contains invalid characters') && ok;
+  else validateField(prefix+'-name', prefix+'-name-err', true, '');
+  // Location
+  if (!loc)                     ok = validateField(prefix+'-location', prefix+'-loc-err', false, 'Location is required') && ok;
+  else if (loc.length < 2)      ok = validateField(prefix+'-location', prefix+'-loc-err', false, 'Location must be at least 2 characters') && ok;
+  else if (loc.length > 150)    ok = validateField(prefix+'-location', prefix+'-loc-err', false, 'Location is too long') && ok;
+  else validateField(prefix+'-location', prefix+'-loc-err', true, '');
+  // Capacity
+  if (isNaN(cap) || cap < 1)    ok = validateField(prefix+'-capacity', prefix+'-cap-err', false, 'Capacity must be at least 1') && ok;
+  else if (cap > 100000)        ok = validateField(prefix+'-capacity', prefix+'-cap-err', false, 'Capacity seems too high') && ok;
+  else validateField(prefix+'-capacity', prefix+'-cap-err', true, '');
+  // Price 1hr
+  if (isNaN(p1) || p1 <= 0)     ok = validateField(prefix+'-price1', prefix+'-p1-err', false, 'Price must be greater than 0') && ok;
+  else if (p1 > 10000000)       ok = validateField(prefix+'-price1', prefix+'-p1-err', false, 'Price seems unrealistically high') && ok;
+  else validateField(prefix+'-price1', prefix+'-p1-err', true, '');
+  // Price 2hr (optional but if set must be >= price1hr)
+  if (p2 > 0 && p2 < p1)        ok = validateField(prefix+'-price2', prefix+'-p2-err', false, '2hr price should be ≥ 1hr price') && ok;
+  else validateField(prefix+'-price2', prefix+'-p2-err', true, '');
+  // Plate price
+  if (isNaN(pp) || pp < 0)      ok = validateField(prefix+'-plate', prefix+'-plate-err', false, 'Plate price must be 0 or more') && ok;
+  else validateField(prefix+'-plate', prefix+'-plate-err', true, '');
+  // Opening hours
+  if (open && close && timeToMins(close) <= timeToMins(open))
+    ok = validateField(prefix+'-close-time', prefix+'-close-err', false, 'Closing time must be after opening time') && ok;
+  else validateField(prefix+'-close-time', prefix+'-close-err', true, '');
   return ok;
 }
 
@@ -1648,9 +1796,11 @@ async function submitReview() {
   const venueId = document.getElementById('rv-venue-id')?.value;
   const comment = document.getElementById('rv-comment')?.value.trim();
   const errors  = [];
-  if (!venueId)              errors.push('Please select a venue');
-  if (!selectedReviewRating) errors.push('Please select a rating (1–5 stars)');
-  if (!comment)              errors.push('Please write a review comment');
+  if (!venueId)                      errors.push('Please select a venue');
+  if (!selectedReviewRating)         errors.push('Please select a star rating (1–5)');
+  if (!comment)                      errors.push('Please write a review comment');
+  else if (comment.length < 5)       errors.push('Review must be at least 5 characters');
+  else if (comment.length > 1000)    errors.push('Review must be under 1000 characters');
   if (errors.length) return showErrors('rv-errors','rv-errors-list', errors);
   try {
     if (reviewPhotoFile) {

@@ -13,6 +13,8 @@
 .slot-toggle-btn.slot-on{background:#22c55e;color:#fff}
 .slot-toggle-btn.slot-off{background:#ef4444;color:#fff}
 .slot-toggle-btn:disabled{opacity:.6;cursor:not-allowed}
+.ow-field-err{display:none;color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500}
+.ow-invalid{border-color:#ef4444!important;outline-color:#ef4444!important}
 </style>
 </head>
 <body>
@@ -145,10 +147,26 @@
     </div>
     <div class="owner-form-card">
       <h3>Register as a Venue Owner</h3>
-      <div class="df-group"><label class="dark-label">Full Name *</label><input class="dark-field" type="text" id="ow-name" placeholder="Your name" /></div>
-      <div class="df-group"><label class="dark-label">Email *</label><input class="dark-field" type="email" id="ow-email" placeholder="you@example.com" /></div>
-      <div class="df-group"><label class="dark-label">Password *</label><input class="dark-field" type="password" id="ow-password" placeholder="••••••••" /></div>
-      <div class="df-group"><label class="dark-label">Phone</label><input class="dark-field" type="tel" id="ow-phone" placeholder="+91 98765 43210" /></div>
+      <div class="df-group">
+        <label class="dark-label">Full Name *</label>
+        <input class="dark-field" type="text" id="ow-name" placeholder="Your name" oninput="owFieldError('ow-name','')" />
+        <span class="ow-field-err" id="ow-name-err"></span>
+      </div>
+      <div class="df-group">
+        <label class="dark-label">Email *</label>
+        <input class="dark-field" type="email" id="ow-email" placeholder="you@example.com" oninput="owFieldError('ow-email','')" />
+        <span class="ow-field-err" id="ow-email-err"></span>
+      </div>
+      <div class="df-group">
+        <label class="dark-label">Password *</label>
+        <input class="dark-field" type="password" id="ow-password" placeholder="••••••••" oninput="owFieldError('ow-password','')" />
+        <span class="ow-field-err" id="ow-password-err"></span>
+      </div>
+      <div class="df-group">
+        <label class="dark-label">Phone</label>
+        <input class="dark-field" type="tel" id="ow-phone" placeholder="+91 98765 43210" oninput="owFieldError('ow-phone','')" />
+        <span class="ow-field-err" id="ow-phone-err"></span>
+      </div>
       <button class="btn-cta" style="width:100%;margin-top:8px" onclick="registerOwner()">Get Started →</button>
     </div>
   </div>
@@ -493,3 +511,4 @@
 <script src="evntly.js"></script>
 </body>
 </html>
+  
