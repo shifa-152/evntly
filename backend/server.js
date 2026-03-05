@@ -556,8 +556,10 @@ app.patch('/api/bookings/:id/payment', authMiddleware, async (req, res) => {
 // ── BLOCK ENTIRE VENUE ───────────────────────────────────────────────────────
 app.patch('/api/venues/:id/block', ownerMiddleware, async (req, res) => {
   try {
-    const venue = await Venue.findOne({ _id: req.params.id, ownerId: req.user.id });
-    if (!venue) return res.status(404).json({ error: 'Venue not found or not yours' });
+    const venue = await Venue.findById(req.params.id);
+    if (!venue) return res.status(404).json({ error: 'Venue not found' });
+    if (String(venue.ownerId) !== String(req.user.id) && req.user.role !== 'admin')
+      return res.status(403).json({ error: 'Not your venue' });
     venue.blocked = !!req.body.blocked;
     await venue.save();
     res.json({ ok: true, blocked: venue.blocked });
@@ -568,8 +570,10 @@ app.patch('/api/venues/:id/block', ownerMiddleware, async (req, res) => {
 // body: { date: "YYYY-MM-DD", timeRange: "HH:MM-HH:MM", blocked: true/false }
 app.patch('/api/venues/:id/block-range', ownerMiddleware, async (req, res) => {
   try {
-    const venue = await Venue.findOne({ _id: req.params.id, ownerId: req.user.id });
-    if (!venue) return res.status(404).json({ error: 'Venue not found or not yours' });
+    const venue = await Venue.findById(req.params.id);
+    if (!venue) return res.status(404).json({ error: 'Venue not found' });
+    if (String(venue.ownerId) !== String(req.user.id) && req.user.role !== 'admin')
+      return res.status(403).json({ error: 'Not your venue' });
     const { date, timeRange, blocked } = req.body;
     if (!date) return res.status(400).json({ error: 'date required' });
     const key = timeRange ? date + '|' + timeRange : date;
@@ -619,6 +623,13 @@ app.post('/api/reviews', authMiddleware, upload.single('photo'), async (req, res
     await Venue.findByIdAndUpdate(venueId, { rating: Math.round(avg * 10) / 10, reviewCount: allRev.length });
     res.status(201).json(review);
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── 404 HANDLER — always return JSON, never HTML ─────────────────────────────
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/'))
+    return res.status(404).json({ error: `No route: ${req.method} ${req.path}` });
+  next();
 });
 
 // ─── GLOBAL ERROR HANDLER ─────────────────────────────────────────────────────

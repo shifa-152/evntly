@@ -102,8 +102,16 @@ async function api(path, { method='GET', body, formData } = {}) {
   const opts = { method, headers };
   if (formData) { opts.body = formData; }
   else if (body) { headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
-  const res  = await fetch(API_BASE + path, opts);
-  const data = await res.json();
+  const res = await fetch(API_BASE + path, opts);
+  const contentType = res.headers.get('content-type') || '';
+  let data;
+  if (contentType.includes('application/json')) {
+    data = await res.json();
+  } else {
+    const text = await res.text();
+    if (!res.ok) throw { error: `Server error ${res.status}: ${text.substring(0, 120)}` };
+    throw { error: `Unexpected response from server (status ${res.status})` };
+  }
   if (!res.ok) throw data;
   return data;
 }
@@ -1442,12 +1450,12 @@ async function openEditVenue(venueId) {
     document.getElementById('ev-plate').value    = v.platePrice || 0;
     document.getElementById('ev-desc').value     = v.description || '';
     const coverDiv = document.getElementById('ev-current-cover');
-    if (coverDiv) coverDiv.innerHTML = v.coverImage
+    coverDiv.innerHTML = v.coverImage
       ? `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--cream);border-radius:6px;border:1px solid var(--border)"><img src="${imgUrl(v.coverImage)}" style="width:80px;height:60px;object-fit:cover;border-radius:4px" onerror="this.style.display='none'" /><div><div style="font-size:0.82rem;font-weight:600">Current Cover</div><div style="font-size:0.72rem;color:var(--muted)">${v.coverImage}</div></div></div>`
       : `<div style="font-size:0.82rem;color:var(--muted)">No cover image set</div>`;
     document.getElementById('ev-cover-preview').innerHTML = '';
     const existingGallery = document.getElementById('ev-existing-gallery');
-    if (existingGallery) existingGallery.innerHTML = (v.images || []).length
+    existingGallery.innerHTML = (v.images || []).length
       ? v.images.map(fn => `<div class="gallery-item" id="eg-${fn.replace(/\./g,'_')}"><img src="${imgUrl(fn)}" alt="venue image" onerror="this.style.display='none'" /><button class="remove-img-btn" onclick="removeExistingImage('${fn}',this)">✕ Remove</button></div>`).join('')
       : `<div style="color:var(--muted);font-size:0.85rem">No gallery images yet</div>`;
     document.getElementById('ev-gallery-previews').innerHTML = '';
@@ -1459,14 +1467,12 @@ async function openEditVenue(venueId) {
     document.getElementById('ev-hotels').innerHTML = '';
     (v.cateringHotels || []).forEach(h => addHotelField('ev', h));
     const tbody = document.getElementById('ev-amenity-tbody');
-    if (tbody) {
     tbody.innerHTML = '';
     (v.amenities || []).forEach(a => {
       const tr = document.createElement('tr'); tr.dataset.key = a.key || 'am_' + Date.now();
       tr.innerHTML = `<td>${escHtml(a.label)}</td><td><input class="price-field" type="number" value="${a.price||0}" min="0" /></td><td><button class="remove-amenity-btn" onclick="removeAmenityRow(this)">✕</button></td>`;
       tbody.appendChild(tr);
     });
-    }
     document.getElementById('edit-venue-nav').style.display = '';
     clearErrors('ev-errors');
     switchPanel('edit-venue', document.getElementById('edit-venue-nav'));
