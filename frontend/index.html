@@ -15,6 +15,13 @@
 .slot-toggle-btn:disabled{opacity:.6;cursor:not-allowed}
 .ow-field-err{display:none;color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500}
 .ow-invalid{border-color:#ef4444!important;outline-color:#ef4444!important}
+.vd-avail-section{padding:20px 24px;background:var(--cream,#f9f5ee);border-top:1px solid var(--border,#e5e5e5)}
+.vd-avail-section .vd-section-title{font-size:0.95rem;font-weight:700;color:var(--dark,#1a1a1a);margin-bottom:14px;letter-spacing:0.3px}
+
+  .field-inline-err{font-size:0.78rem;color:#ef4444;margin-top:4px;min-height:16px;display:block}
+  .form-input.input-error{border-color:#ef4444 !important}
+  .form-input.input-ok{border-color:#22c55e !important}
+  .clearFE{display:none}
 </style>
 </head>
 <body>
@@ -31,7 +38,6 @@
     <a onclick="scrollToReviews()">Reviews</a>
   </div>
   <div class="nav-btns">
-    <div class="api-status checking" id="api-status"><div class="api-dot"></div><span>Checking…</span></div>
     <button class="btn-ghost" id="nav-login-btn" onclick="openModal('auth-modal')">Sign In</button>
     <button class="btn-primary" id="nav-dash-btn" style="display:none" onclick="showDashboard()">Dashboard</button>
     <button class="nav-hamburger" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
@@ -59,11 +65,7 @@
     <button class="btn-cta" onclick="scrollToVenues()">Browse Venues →</button>
     <button class="btn-outline" onclick="scrollToOwner()">List Your Space</button>
   </div>
-  <div class="hero-stats">
-    <div class="stat"><div class="stat-num" id="stat-venues">200+</div><div class="stat-label">Venues</div></div>
-    <div class="stat"><div class="stat-num">50K+</div><div class="stat-label">Events</div></div>
-    <div class="stat"><div class="stat-num">4.9★</div><div class="stat-label">Rating</div></div>
-  </div>
+  <div class="hero-stats" id="stat-venues" style="display:none"></div>
   <div class="scroll-line"></div>
 </section>
 
@@ -81,7 +83,7 @@
       <input class="sf-input" type="text" id="search-loc" placeholder="Mumbai, Delhi…" />
     </div>
     <div class="search-field">
-      <label>Date</label>
+      <label>Date <span style="font-size:0.7rem;color:#888">(shows available venues)</span></label>
       <input class="sf-input" type="date" id="search-date" />
     </div>
     <div class="search-field">
@@ -89,6 +91,18 @@
       <input class="sf-input" type="number" id="search-guests" placeholder="50" min="1" />
     </div>
     <button class="btn-search" onclick="searchVenues()">Search Venues</button>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     HOMEPAGE SHOWCASE (admin-managed photos)
+     ══════════════════════════════════════════════════════════════ -->
+<section id="showcase-section" style="display:none;padding:0 0 0 0;overflow:hidden">
+  <div id="showcase-inner" style="position:relative;background:#1a1a1a">
+    <div id="showcase-track" style="display:flex;transition:transform .5s ease;will-change:transform"></div>
+    <button id="showcase-prev" onclick="showcaseSlide(-1)" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);color:#fff;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:1.1rem;z-index:5">‹</button>
+    <button id="showcase-next" onclick="showcaseSlide(1)"  style="position:absolute;right:16px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);color:#fff;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:1.1rem;z-index:5">›</button>
+    <div id="showcase-dots" style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:5"></div>
   </div>
 </section>
 
@@ -154,7 +168,7 @@
       </div>
       <div class="df-group">
         <label class="dark-label">Email *</label>
-        <input class="dark-field" type="email" id="ow-email" placeholder="you@example.com" oninput="owFieldError('ow-email','')" />
+        <input class="dark-field" type="email" id="ow-email" placeholder="you@example.com" oninput="owLiveEmailValidate()" />
         <span class="ow-field-err" id="ow-email-err"></span>
       </div>
       <div class="df-group">
@@ -167,7 +181,20 @@
         <input class="dark-field" type="tel" id="ow-phone" placeholder="+91 98765 43210" oninput="owFieldError('ow-phone','')" />
         <span class="ow-field-err" id="ow-phone-err"></span>
       </div>
-      <button class="btn-cta" style="width:100%;margin-top:8px" onclick="registerOwner()">Get Started →</button>
+      <div class="df-group">
+        <label class="dark-label">Venue Proof Documents * <span style="font-size:0.72rem;font-weight:400;opacity:0.65">(Venue Agreement / Light Bill / Water Bill / Photos)</span></label>
+        <div id="ow-proof-area" style="border:2px dashed rgba(200,169,110,0.4);border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:rgba(0,0,0,0.2)" onclick="document.getElementById('ow-proof-input').click()">
+          <input type="file" id="ow-proof-input" multiple accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none" onchange="previewOwnerProofs(event)" />
+          <div style="font-size:1.5rem;margin-bottom:6px">📎</div>
+          <div style="font-size:0.8rem;color:rgba(255,255,255,0.45)">Click to upload proof documents<br><small>JPG, PNG, WEBP, PDF accepted</small></div>
+        </div>
+        <div id="ow-proof-preview" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px"></div>
+        <span class="ow-field-err" id="ow-proof-err"></span>
+      </div>
+      <div id="ow-success-msg" style="display:none;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;padding:14px;font-size:0.83rem;color:#4ade80;line-height:1.6;margin-bottom:10px">
+        ✅ <strong>Application submitted!</strong> Your registration is under review. You'll receive access once our admin approves your application (24–48 hrs).
+      </div>
+      <button class="btn-cta" style="width:100%;margin-top:8px" id="ow-submit-btn" onclick="registerOwner()">Submit Application →</button>
     </div>
   </div>
 </section>
@@ -272,12 +299,30 @@
         <div class="dash-form-field"><label class="dash-label">Venue Name *</label><input class="dash-input" type="text" id="av-name" placeholder="The Grand Ballroom" /><div class="field-error" id="av-name-err">Venue name is required</div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <div class="dash-form-field"><label class="dash-label">Type</label><select class="dash-input" id="av-type"><option>Banquet Hall</option><option>Conference Center</option><option>Garden</option><option>Rooftop</option><option>Studio</option></select></div>
-          <div class="dash-form-field"><label class="dash-label">Location *</label><input class="dash-input" type="text" id="av-location" placeholder="Bandra, Mumbai" /><div class="field-error" id="av-loc-err">Location is required</div></div>
+          <div class="dash-form-field"><label class="dash-label">Area / Locality *</label><input class="dash-input" type="text" id="av-location" placeholder="Bandra, Mumbai" oninput="clearFE('av-loc-err')" /><div class="field-error" id="av-loc-err">Location is required</div></div>
         </div>
+        <div class="dash-form-field"><label class="dash-label">Full Address *</label><input class="dash-input" type="text" id="av-address" placeholder="e.g. 101, Sea View Complex, Hill Road, Bandra West" oninput="clearFE('av-addr-err')" /><div class="field-error" id="av-addr-err">Full address is required</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+          <div class="dash-form-field"><label class="dash-label">City *</label><input class="dash-input" type="text" id="av-city" placeholder="Mumbai" oninput="clearFE('av-city-err')" /><div class="field-error" id="av-city-err">City is required</div></div>
+          <div class="dash-form-field"><label class="dash-label">State *</label><input class="dash-input" type="text" id="av-state" placeholder="Maharashtra" oninput="clearFE('av-state-err')" /><div class="field-error" id="av-state-err">State is required</div></div>
+          <div class="dash-form-field"><label class="dash-label">PIN Code *</label><input class="dash-input" type="text" id="av-pincode" placeholder="400050" maxlength="6" oninput="clearFE('av-pin-err')" /><div class="field-error" id="av-pin-err">Valid 6-digit PIN required</div></div>
+        </div>
+        <div class="dash-form-field"><label class="dash-label">Venue Email <span style="font-size:0.73rem;color:var(--muted);font-weight:400">(for customer enquiries)</span></label><input class="dash-input" type="email" id="av-venue-email" placeholder="venue@email.com" oninput="liveEmailValidate('av-venue-email','av-email-err')" /><div class="field-error" id="av-email-err"></div></div>
+        <div class="dash-form-field"><label class="dash-label">Venue Contact Phone</label><input class="dash-input" type="tel" id="av-venue-phone" placeholder="+91 98765 43210" /></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
           <div class="dash-form-field"><label class="dash-label">Capacity * (guests)</label><input class="dash-input" type="number" id="av-capacity" placeholder="200" min="1" step="1" /><div class="field-error" id="av-cap-err">Capacity must be ≥ 1</div></div>
+          <div class="dash-form-field"><label class="dash-label">Venue Size</label><input class="dash-input" type="text" id="av-venue-size" placeholder="e.g. 5000 sq.ft, Large, 3 Halls" /></div>
           <div class="dash-form-field"><label class="dash-label">Price 1hr (₹) *</label><input class="dash-input" type="number" id="av-price1" placeholder="5000" min="1" step="1" /><div class="field-error" id="av-p1-err">Price must be > 0</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
           <div class="dash-form-field"><label class="dash-label">Price 2hr (₹)</label><input class="dash-input" type="number" id="av-price2" placeholder="9000" min="0" step="1" /></div>
+          <div class="dash-form-field"><label class="dash-label">Price 3hr (₹)</label><input class="dash-input" type="number" id="av-price3" placeholder="" min="0" step="1" /></div>
+          <div class="dash-form-field"><label class="dash-label">Price 4hr (₹)</label><input class="dash-input" type="number" id="av-price4" placeholder="" min="0" step="1" /></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+          <div class="dash-form-field"><label class="dash-label">Price 5hr (₹)</label><input class="dash-input" type="number" id="av-price5" placeholder="" min="0" step="1" /></div>
+          <div class="dash-form-field"><label class="dash-label">Price 6hr (₹)</label><input class="dash-input" type="number" id="av-price6" placeholder="" min="0" step="1" /></div>
+          <div class="dash-form-field"><label class="dash-label">Price 7hr (₹)</label><input class="dash-input" type="number" id="av-price7" placeholder="" min="0" step="1" /></div>
         </div>
         <div class="dash-form-field"><label class="dash-label">Plate Price (₹/person, 0 = not applicable)</label><input class="dash-input" type="number" id="av-plate" placeholder="0" min="0" step="1" /><div class="field-error" id="av-plate-err">Plate price must be ≥ 0</div></div>
         <div class="dash-form-field"><label class="dash-label">Description</label><textarea class="dash-input" id="av-desc" style="height:90px;resize:vertical" placeholder="Describe your venue…"></textarea></div>
@@ -341,12 +386,30 @@
         <div class="dash-form-field"><label class="dash-label">Venue Name *</label><input class="dash-input" type="text" id="ev-name" /><div class="field-error" id="ev-name-err">Venue name is required</div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <div class="dash-form-field"><label class="dash-label">Type</label><select class="dash-input" id="ev-type"><option>Banquet Hall</option><option>Conference Center</option><option>Garden</option><option>Rooftop</option><option>Studio</option></select></div>
-          <div class="dash-form-field"><label class="dash-label">Location *</label><input class="dash-input" type="text" id="ev-location" /><div class="field-error" id="ev-loc-err">Location is required</div></div>
+          <div class="dash-form-field"><label class="dash-label">Area / Locality *</label><input class="dash-input" type="text" id="ev-location" oninput="clearFE('ev-loc-err')" /><div class="field-error" id="ev-loc-err">Location is required</div></div>
         </div>
+        <div class="dash-form-field"><label class="dash-label">Full Address *</label><input class="dash-input" type="text" id="ev-address" placeholder="101, Sea View Complex, Hill Road" oninput="clearFE('ev-addr-err')" /><div class="field-error" id="ev-addr-err">Full address is required</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+          <div class="dash-form-field"><label class="dash-label">City *</label><input class="dash-input" type="text" id="ev-city" oninput="clearFE('ev-city-err')" /><div class="field-error" id="ev-city-err">City is required</div></div>
+          <div class="dash-form-field"><label class="dash-label">State *</label><input class="dash-input" type="text" id="ev-state" oninput="clearFE('ev-state-err')" /><div class="field-error" id="ev-state-err">State is required</div></div>
+          <div class="dash-form-field"><label class="dash-label">PIN Code *</label><input class="dash-input" type="text" id="ev-pincode" maxlength="6" oninput="clearFE('ev-pin-err')" /><div class="field-error" id="ev-pin-err">Valid 6-digit PIN required</div></div>
+        </div>
+        <div class="dash-form-field"><label class="dash-label">Venue Email</label><input class="dash-input" type="email" id="ev-venue-email" placeholder="venue@email.com" oninput="liveEmailValidate('ev-venue-email','ev-email-err')" /><div class="field-error" id="ev-email-err"></div></div>
+        <div class="dash-form-field"><label class="dash-label">Venue Contact Phone</label><input class="dash-input" type="tel" id="ev-venue-phone" /></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
           <div class="dash-form-field"><label class="dash-label">Capacity *</label><input class="dash-input" type="number" id="ev-capacity" min="1" /><div class="field-error" id="ev-cap-err">Must be ≥ 1</div></div>
+          <div class="dash-form-field"><label class="dash-label">Venue Size</label><input class="dash-input" type="text" id="ev-venue-size" placeholder="e.g. 5000 sq.ft, Large" /></div>
           <div class="dash-form-field"><label class="dash-label">Price 1hr (₹) *</label><input class="dash-input" type="number" id="ev-price1" min="1" /><div class="field-error" id="ev-p1-err">Must be > 0</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
           <div class="dash-form-field"><label class="dash-label">Price 2hr (₹)</label><input class="dash-input" type="number" id="ev-price2" min="0" /></div>
+          <div class="dash-form-field"><label class="dash-label">Price 3hr (₹)</label><input class="dash-input" type="number" id="ev-price3" min="0" /></div>
+          <div class="dash-form-field"><label class="dash-label">Price 4hr (₹)</label><input class="dash-input" type="number" id="ev-price4" min="0" /></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+          <div class="dash-form-field"><label class="dash-label">Price 5hr (₹)</label><input class="dash-input" type="number" id="ev-price5" min="0" /></div>
+          <div class="dash-form-field"><label class="dash-label">Price 6hr (₹)</label><input class="dash-input" type="number" id="ev-price6" min="0" /></div>
+          <div class="dash-form-field"><label class="dash-label">Price 7hr (₹)</label><input class="dash-input" type="number" id="ev-price7" min="0" /></div>
         </div>
         <div class="dash-form-field"><label class="dash-label">Plate Price (₹/person)</label><input class="dash-input" type="number" id="ev-plate" min="0" /><div class="field-error" id="ev-plate-err">Must be ≥ 0</div></div>
         <div class="dash-form-field"><label class="dash-label">Description</label><textarea class="dash-input" id="ev-desc" style="height:90px;resize:vertical"></textarea></div>
@@ -453,8 +516,19 @@
       <!-- LOGIN -->
       <div id="auth-login">
         <div class="form-errors-box" id="login-errors"><ul id="login-errors-list"></ul></div>
-        <div class="form-field"><label class="form-label">Email *</label><input class="form-input" type="email" id="login-email" placeholder="you@example.com" /></div>
-        <div class="form-field"><label class="form-label">Password *</label><input class="form-input" type="password" id="login-password" placeholder="••••••••" /></div>
+        <div class="form-field">
+          <label class="form-label">Email *</label>
+          <input class="form-input" type="email" id="login-email" placeholder="you@example.com" oninput="clearFieldErr('login-email-err')" />
+          <div class="field-inline-err" id="login-email-err"></div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Password *</label>
+          <input class="form-input" type="password" id="login-password" placeholder="••••••••" oninput="clearFieldErr('login-pw-err')" onkeydown="if(event.key==='Enter')login()" />
+          <div class="field-inline-err" id="login-pw-err"></div>
+        </div>
+        <div style="text-align:right;margin-top:-8px;margin-bottom:16px">
+          <a style="font-size:0.8rem;color:var(--gold);cursor:pointer;font-weight:600" onclick="closeModal('auth-modal');location.href='reset-password.html'">Forgot password?</a>
+        </div>
         <button class="btn-submit" onclick="login()">Sign In →</button>
         <p style="margin-top:16px;font-size:0.82rem;color:var(--muted);text-align:center">
           Not registered? <a style="color:var(--gold);cursor:pointer;font-weight:600" onclick="switchAuthTab('register')">Create an account →</a>
@@ -463,13 +537,39 @@
       <!-- REGISTER -->
       <div id="auth-register" style="display:none">
         <div class="form-errors-box" id="reg-errors"><ul id="reg-errors-list"></ul></div>
-        <div class="form-field"><label class="form-label">Full Name *</label><input class="form-input" type="text" id="reg-name" placeholder="Your name" /></div>
-        <div class="form-field"><label class="form-label">Email *</label><input class="form-input" type="email" id="reg-email" placeholder="you@example.com" /></div>
-        <div class="form-field"><label class="form-label">Password *</label><input class="form-input" type="password" id="reg-password" placeholder="•••••••• (min 6 chars)" /></div>
-        <div class="form-field"><label class="form-label">Phone</label><input class="form-input" type="tel" id="reg-phone" placeholder="+91 98765 43210" /></div>
-        <div class="form-field"><label class="form-label">Role</label>
-          <select class="form-input" id="reg-role"><option value="customer">Customer</option><option value="owner">Venue Owner</option></select>
+        <div class="form-field">
+          <label class="form-label">Full Name *</label>
+          <input class="form-input" type="text" id="reg-name" placeholder="Your name"
+            oninput="liveNameValidate('reg-name','reg-name-err')" />
+          <div class="field-inline-err" id="reg-name-err"></div>
         </div>
+        <div class="form-field">
+          <label class="form-label">Email *</label>
+          <input class="form-input" type="email" id="reg-email" placeholder="you@example.com"
+            oninput="liveEmailValidate('reg-email','reg-email-err')" />
+          <div class="field-inline-err" id="reg-email-err"></div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Password *</label>
+          <input class="form-input" type="password" id="reg-password" placeholder="•••••••• (min 6 chars)"
+            oninput="livePasswordValidate('reg-password','reg-pw-err');regStrength()" />
+          <div class="pw-strength-bar"><div class="pw-strength-fill" id="reg-strength-fill"></div></div>
+          <div class="pw-strength-text" id="reg-strength-text"></div>
+          <div class="field-inline-err" id="reg-pw-err"></div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Confirm Password *</label>
+          <input class="form-input" type="password" id="reg-confirm" placeholder="Repeat your password"
+            oninput="liveConfirmValidate('reg-password','reg-confirm','reg-confirm-err')" />
+          <div class="field-inline-err" id="reg-confirm-err"></div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Phone</label>
+          <input class="form-input" type="tel" id="reg-phone" placeholder="+91 98765 43210"
+            oninput="livePhoneValidate('reg-phone','reg-phone-err')" />
+          <div class="field-inline-err" id="reg-phone-err"></div>
+        </div>
+        <input type="hidden" id="reg-role" value="customer" />
         <button class="btn-submit" onclick="register()">Create Account →</button>
       </div>
     </div>

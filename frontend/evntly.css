@@ -590,3 +590,41 @@ footer { background: var(--dark); padding: 60px 48px 32px; }
   .vd-main-img { height: 200px; }
   .venue-detail-modal .modal { border-radius: 12px 12px 0 0; }
 }
+
+/* ── INLINE FIELD VALIDATION STATES ─────────────────────────────── */
+.field-inline-err {
+  font-size: 0.76rem;
+  color: #ef4444;
+  margin-top: 4px;
+  min-height: 16px;
+  line-height: 1.4;
+}
+.form-input.input-ok {
+  border-color: #22c55e !important;
+  background: rgba(34,197,94,0.03);
+}
+.form-input.input-error {
+  border-color: #ef4444 !important;
+  background: rgba(239,68,68,0.03);
+}
+
+/* ── PASSWORD STRENGTH BAR ───────────────────────────────────────── */
+.pw-strength-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+  margin-top: 6px;
+}
+.pw-strength-fill {
+  height: 100%;
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+.pw-strength-text {
+  font-size: 0.72rem;
+  margin-top: 3px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}

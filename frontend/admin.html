@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EVNTLY — Super Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --dark:#1a1a1a;--gold:#c8a96e;--sage:#4a5e4f;--brick:#8b3a2a;
+  --cream:#f9f5ee;--border:#e5ddd0;--card:#fff;--muted:#888;
+  --success:#22c55e;--error:#ef4444;--warn:#f59e0b;
+}
+body{font-family:'DM Sans',sans-serif;background:#0f0f0f;color:#e8e8e8;min-height:100vh}
+
+/* ── LOGIN PAGE ── */
+#login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0f0f0f 0%,#1a1209 100%)}
+.login-box{background:#1a1a1a;border:1px solid #333;border-radius:16px;padding:48px 40px;width:100%;max-width:400px;text-align:center}
+.login-logo{font-family:'Playfair Display',serif;font-size:2rem;font-weight:900;color:var(--gold);margin-bottom:4px}
+.login-logo span{color:#fff}
+.login-sub{font-size:0.78rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:32px}
+.login-field{margin-bottom:16px;text-align:left}
+.login-field label{display:block;font-size:0.78rem;color:var(--muted);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.login-field input{width:100%;background:#111;border:1px solid #333;border-radius:8px;padding:12px 14px;color:#fff;font-size:0.9rem;outline:none;transition:border .2s}
+.login-field input:focus{border-color:var(--gold)}
+.login-err{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:10px 14px;font-size:0.82rem;color:#f87171;margin-bottom:14px;display:none}
+.btn-login{width:100%;background:var(--gold);color:#1a1a1a;font-weight:700;font-size:0.9rem;padding:13px;border:none;border-radius:8px;cursor:pointer;letter-spacing:0.5px;transition:opacity .2s;margin-top:8px}
+.btn-login:hover{opacity:0.9}
+.admin-lock{font-size:2.5rem;margin-bottom:20px}
+
+/* ── ADMIN SHELL ── */
+#admin-shell{display:none;min-height:100vh;background:#111}
+.admin-header{background:#1a1a1a;border-bottom:1px solid #2a2a2a;padding:0 32px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.admin-header-logo{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:900;color:var(--gold)}
+.admin-header-logo span{color:#fff}
+.admin-header-right{display:flex;align-items:center;gap:16px}
+.admin-badge{background:rgba(200,169,110,0.15);border:1px solid rgba(200,169,110,0.3);border-radius:20px;padding:4px 12px;font-size:0.72rem;color:var(--gold);font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.btn-logout{background:transparent;border:1px solid #333;color:#aaa;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:0.8rem;transition:all .2s}
+.btn-logout:hover{border-color:#ef4444;color:#ef4444}
+
+.admin-layout{display:flex;min-height:calc(100vh - 60px)}
+.admin-sidebar{width:220px;background:#161616;border-right:1px solid #2a2a2a;padding:20px 0;flex-shrink:0;position:sticky;top:60px;height:calc(100vh - 60px);overflow-y:auto}
+.sidebar-section{padding:0 12px;margin-bottom:20px}
+.sidebar-section-label{font-size:0.65rem;color:#555;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:0 8px;margin-bottom:6px}
+.sidebar-btn{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:0.85rem;color:#aaa;transition:all .15s;border:none;background:none;width:100%;text-align:left}
+.sidebar-btn:hover{background:#222;color:#fff}
+.sidebar-btn.active{background:rgba(200,169,110,0.12);color:var(--gold);font-weight:600}
+.sidebar-btn .notif{background:var(--brick);color:#fff;font-size:0.65rem;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:auto}
+
+.admin-main{flex:1;padding:32px;overflow-y:auto}
+.admin-panel{display:none}
+.admin-panel.active{display:block}
+
+/* ── CARDS / STATS ── */
+.panel-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:#fff;margin-bottom:6px}
+.panel-sub{font-size:0.84rem;color:var(--muted);margin-bottom:28px}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.stat-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:20px;text-align:center}
+.stat-num{font-size:1.8rem;font-weight:700;color:var(--gold)}
+.stat-label{font-size:0.75rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.5px}
+
+/* ── TABLES ── */
+.admin-table{width:100%;border-collapse:collapse;background:#1a1a1a;border-radius:12px;overflow:hidden;border:1px solid #2a2a2a}
+.admin-table th{background:#222;color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;padding:12px 16px;text-align:left;font-weight:600}
+.admin-table td{padding:14px 16px;border-bottom:1px solid #222;font-size:0.85rem;color:#ccc;vertical-align:middle}
+.admin-table tr:last-child td{border-bottom:none}
+.admin-table tr:hover td{background:#1f1f1f}
+
+/* ── PILLS ── */
+.pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px}
+.pill-pending{background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3)}
+.pill-approved{background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.25)}
+.pill-rejected{background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25)}
+.pill-owner{background:rgba(200,169,110,0.12);color:var(--gold);border:1px solid rgba(200,169,110,0.25)}
+.pill-customer{background:rgba(74,94,79,0.12);color:#6db87a;border:1px solid rgba(74,94,79,0.25)}
+.pill-admin{background:rgba(139,58,42,0.15);color:#f87171;border:1px solid rgba(139,58,42,0.3)}
+
+/* ── BUTTONS ── */
+.btn-approve{background:rgba(34,197,94,0.1);color:#22c55e;border:1px solid rgba(34,197,94,0.3);padding:5px 14px;border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:700;transition:all .15s}
+.btn-approve:hover{background:rgba(34,197,94,0.2)}
+.btn-reject{background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.3);padding:5px 14px;border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:700;transition:all .15s}
+.btn-reject:hover{background:rgba(239,68,68,0.2)}
+.btn-delete{background:rgba(139,58,42,0.1);color:#f87171;border:1px solid rgba(139,58,42,0.3);padding:5px 14px;border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:700;transition:all .15s}
+.btn-delete:hover{background:rgba(139,58,42,0.2)}
+.btn-view{background:rgba(200,169,110,0.1);color:var(--gold);border:1px solid rgba(200,169,110,0.25);padding:5px 14px;border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:700;transition:all .15s}
+.btn-view:hover{background:rgba(200,169,110,0.2)}
+.btn-primary-gold{background:var(--gold);color:#1a1a1a;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:0.85rem;font-weight:700;transition:opacity .2s}
+.btn-primary-gold:hover{opacity:0.88}
+.btn-ghost-dark{background:transparent;color:#aaa;border:1px solid #333;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:0.85rem;font-weight:600;transition:all .2s}
+.btn-ghost-dark:hover{border-color:#555;color:#fff}
+
+/* ── FORM ── */
+.form-group{margin-bottom:18px}
+.form-group label{display:block;font-size:0.75rem;color:var(--muted);font-weight:600;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px}
+.form-group input,.form-group textarea,.form-group select{width:100%;background:#111;border:1px solid #333;border-radius:8px;padding:11px 14px;color:#fff;font-size:0.88rem;outline:none;transition:border .2s;font-family:inherit}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{border-color:var(--gold)}
+.form-group textarea{resize:vertical;min-height:80px}
+.form-row{display:grid;gap:16px}
+.form-row.col2{grid-template-columns:1fr 1fr}
+
+/* ── PHOTO UPLOAD AREA ── */
+.upload-area{border:2px dashed #333;border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:border .2s;background:#111}
+.upload-area:hover{border-color:var(--gold)}
+.upload-area input{display:none}
+.upload-area-icon{font-size:2rem;margin-bottom:8px}
+.upload-area-text{font-size:0.82rem;color:var(--muted)}
+.photo-preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:14px}
+.photo-preview-item{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:4/3}
+.photo-preview-item img{width:100%;height:100%;object-fit:cover}
+.photo-remove{position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:0.7rem;display:flex;align-items:center;justify-content:center}
+
+/* ── HOMEPAGE BANNERS ── */
+.banner-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-top:8px}
+.banner-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;position:relative}
+.banner-card img{width:100%;height:140px;object-fit:cover}
+.banner-card-body{padding:12px}
+.banner-card-title{font-size:0.85rem;font-weight:600;color:#fff;margin-bottom:4px}
+.banner-card-sub{font-size:0.75rem;color:var(--muted)}
+.banner-card-actions{display:flex;gap:6px;margin-top:10px}
+.banner-active-badge{position:absolute;top:8px;left:8px;background:var(--gold);color:#1a1a1a;font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px}
+
+/* ── PROOF MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.active{opacity:1;pointer-events:all}
+.modal-box{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:16px;width:90%;max-width:600px;max-height:85vh;overflow-y:auto}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #2a2a2a}
+.modal-title{font-size:1rem;font-weight:700;color:#fff}
+.modal-close{background:none;border:none;color:#666;font-size:1.2rem;cursor:pointer;line-height:1;transition:color .15s}
+.modal-close:hover{color:#fff}
+.modal-body{padding:24px}
+.proof-item{background:#111;border:1px solid #2a2a2a;border-radius:8px;padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px}
+.proof-icon{font-size:1.5rem;flex-shrink:0}
+.proof-name{font-size:0.85rem;color:#ccc;font-weight:500}
+.proof-type{font-size:0.72rem;color:var(--muted);margin-top:2px}
+.proof-open{background:var(--gold);color:#1a1a1a;border:none;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:700;margin-left:auto;flex-shrink:0}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{background:#222;border:1px solid #333;border-radius:8px;padding:12px 18px;font-size:0.84rem;color:#e8e8e8;animation:slideIn .3s ease;display:flex;align-items:center;gap:8px;min-width:250px}
+.toast.success{border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.08)}
+.toast.error{border-color:rgba(239,68,68,0.4);background:rgba(239,68,68,0.08)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+
+/* ── MISC ── */
+.section-label{font-size:0.7rem;color:var(--muted);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;margin-top:24px}
+.empty-state{text-align:center;padding:48px;color:var(--muted);font-size:0.9rem}
+.empty-icon{font-size:2.5rem;margin-bottom:12px}
+.owner-info-card{background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:16px;margin-bottom:6px}
+.owner-info-name{font-size:0.95rem;font-weight:700;color:#fff}
+.owner-info-email{font-size:0.78rem;color:var(--muted);margin-top:2px}
+.owner-proof-wrap{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+.proof-badge{background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:5px 12px;font-size:0.75rem;color:#aaa;cursor:pointer;transition:border .15s}
+.proof-badge:hover{border-color:var(--gold);color:var(--gold)}
+.approval-actions{display:flex;gap:8px;margin-top:12px}
+.owner-pending-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:20px;margin-bottom:14px}
+.owner-pending-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.reject-reason-input{background:#111;border:1px solid #333;border-radius:6px;padding:8px 12px;color:#fff;font-size:0.82rem;width:100%;margin-top:8px;outline:none;font-family:inherit}
+.reject-reason-input:focus{border-color:#ef4444}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN PAGE ════════════════════════════════════════ -->
+<div id="login-page">
+  <div class="login-box">
+    <div class="admin-lock">🔐</div>
+    <div class="login-logo">EVNTLY<span>.</span></div>
+    <div class="login-sub">Super Admin Access</div>
+    <div class="login-err" id="login-err"></div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="a-email" placeholder="admin@evntly.com" onkeydown="if(event.key==='Enter')adminLogin()" />
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="a-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')adminLogin()" />
+    </div>
+    <button class="btn-login" onclick="adminLogin()">Access Dashboard →</button>
+  </div>
+</div>
+
+<!-- ══ ADMIN SHELL ════════════════════════════════════════ -->
+<div id="admin-shell">
+  <header class="admin-header">
+    <div class="admin-header-logo">EVNTLY<span>.</span> Admin</div>
+    <div class="admin-header-right">
+      <div class="admin-badge">⚡ Super Admin</div>
+      <button class="btn-logout" onclick="adminLogout()">Sign Out</button>
+    </div>
+  </header>
+
+  <div class="admin-layout">
+    <!-- Sidebar -->
+    <nav class="admin-sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Overview</div>
+        <button class="sidebar-btn active" onclick="showPanel('overview',this)">📊 Dashboard</button>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Approvals</div>
+        <button class="sidebar-btn" id="sb-owner-approvals" onclick="showPanel('owner-approvals',this)">🏛️ Owner Registrations <span class="notif" id="approval-notif" style="display:none">0</span></button>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Content</div>
+        <button class="sidebar-btn" onclick="showPanel('homepage-photos',this)">🖼️ Homepage Photos</button>
+        <button class="sidebar-btn" onclick="showPanel('venues',this)">🏢 All Venues</button>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Users</div>
+        <button class="sidebar-btn" onclick="showPanel('users',this)">👥 All Users</button>
+        <button class="sidebar-btn" onclick="showPanel('bookings',this)">📅 All Bookings</button>
+      </div>
+    </nav>
+
+    <!-- Main -->
+    <main class="admin-main">
+
+      <!-- ═ OVERVIEW ═ -->
+      <div class="admin-panel active" id="panel-overview">
+        <div class="panel-title">Dashboard Overview</div>
+        <div class="panel-sub">Welcome back, Super Admin.</div>
+        <div class="stats-row" id="overview-stats">
+          <div class="stat-card"><div class="stat-num" id="st-venues">—</div><div class="stat-label">Total Venues</div></div>
+          <div class="stat-card"><div class="stat-num" id="st-users">—</div><div class="stat-label">Total Users</div></div>
+          <div class="stat-card"><div class="stat-num" id="st-bookings">—</div><div class="stat-label">Total Bookings</div></div>
+          <div class="stat-card"><div class="stat-num" id="st-pending">—</div><div class="stat-label">Pending Approvals</div></div>
+        </div>
+        <div class="section-label">Recent Owner Registration Requests</div>
+        <div id="recent-approvals"></div>
+      </div>
+
+      <!-- ═ OWNER APPROVALS ═ -->
+      <div class="admin-panel" id="panel-owner-approvals">
+        <div class="panel-title">Owner Registration Approvals</div>
+        <div class="panel-sub">Review proof documents and approve or reject venue owner applications.</div>
+        <div id="approvals-list"><div class="empty-state"><div class="empty-icon">⏳</div>Loading…</div></div>
+      </div>
+
+      <!-- ═ HOMEPAGE PHOTOS ═ -->
+      <div class="admin-panel" id="panel-homepage-photos">
+        <div class="panel-title">Homepage Showcase Photos</div>
+        <div class="panel-sub">Add venue photos with title and caption that appear in the homepage gallery.</div>
+
+        <!-- Add new photo form -->
+        <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:24px;margin-bottom:28px">
+          <div class="section-label" style="margin-top:0">Add New Showcase Photo</div>
+          <div class="form-row col2">
+            <div class="form-group">
+              <label>Title *</label>
+              <input type="text" id="hp-title" placeholder="e.g. The Grand Ballroom" />
+            </div>
+            <div class="form-group">
+              <label>Venue Name / Caption</label>
+              <input type="text" id="hp-caption" placeholder="e.g. Mumbai · Up to 500 guests" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Photo *</label>
+            <div class="upload-area" onclick="document.getElementById('hp-photo-input').click()">
+              <input type="file" id="hp-photo-input" accept="image/jpeg,image/png,image/webp" onchange="previewHPPhoto(event)" />
+              <div class="upload-area-icon">🖼️</div>
+              <div class="upload-area-text">Click to upload photo (JPG, PNG, WEBP)</div>
+            </div>
+            <div id="hp-photo-preview" style="margin-top:10px"></div>
+          </div>
+          <div class="form-group">
+            <label>Sort Order (lower = first)</label>
+            <input type="number" id="hp-order" value="0" min="0" style="width:120px" />
+          </div>
+          <button class="btn-primary-gold" onclick="addHomepagePhoto()">Add to Showcase →</button>
+        </div>
+
+        <!-- Existing photos -->
+        <div class="section-label">Current Showcase Photos</div>
+        <div class="banner-grid" id="hp-photos-grid">
+          <div class="empty-state" style="grid-column:1/-1">Loading…</div>
+        </div>
+      </div>
+
+      <!-- ═ ALL VENUES ═ -->
+      <div class="admin-panel" id="panel-venues">
+        <div class="panel-title">All Venues</div>
+        <div class="panel-sub">View, manage and delete any venue on the platform.</div>
+        <div id="all-venues-list"><div class="empty-state"><div class="empty-icon">⏳</div>Loading…</div></div>
+      </div>
+
+      <!-- ═ ALL USERS ═ -->
+      <div class="admin-panel" id="panel-users">
+        <div class="panel-title">All Users</div>
+        <div class="panel-sub">View all registered users and manage roles.</div>
+        <table class="admin-table" id="users-table">
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th><th>Joined</th><th>Actions</th></tr></thead>
+          <tbody id="users-tbody"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- ═ ALL BOOKINGS ═ -->
+      <div class="admin-panel" id="panel-bookings">
+        <div class="panel-title">All Bookings</div>
+        <div class="panel-sub">View every booking across all venues.</div>
+        <table class="admin-table">
+          <thead><tr><th>Ref</th><th>Customer</th><th>Venue</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody id="bookings-tbody"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ══ PROOF MODAL ════════════════════════════════════════ -->
+<div class="modal-overlay" id="proof-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="proof-modal-title">Verification Documents</div>
+      <button class="modal-close" onclick="closeProofModal()">✕</button>
+    </div>
+    <div class="modal-body" id="proof-modal-body"></div>
+  </div>
+</div>
+
+<!-- ══ MESSAGE MODAL ════════════════════════════════════════ -->
+<div class="modal-overlay" id="msg-modal">
+  <div class="modal-box" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-title" id="msg-modal-title">✉️ Message Applicant</div>
+      <button class="modal-close" onclick="closeMsgModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:0.8rem;color:#888;margin-bottom:14px">Sending to: <strong id="msg-to-label" style="color:#ccc"></strong></div>
+      <div class="form-group">
+        <label>Subject</label>
+        <input type="text" id="msg-subject" placeholder="e.g. Missing documents for your application" />
+      </div>
+      <div class="form-group">
+        <label>Message *</label>
+        <textarea id="msg-body" style="min-height:120px" placeholder="e.g. Hi, we reviewed your application. The proof documents uploaded are not clearly legible. Please resubmit with a clearer scan of your venue agreement or utility bill…"></textarea>
+      </div>
+      <div id="msg-result" style="display:none;padding:10px 14px;border-radius:8px;font-size:0.83rem;margin-bottom:12px"></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-primary-gold" onclick="sendAdminMsg()">Send Message →</button>
+        <button class="btn-ghost-dark" onclick="closeMsgModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOAST ════════════════════════════════════════ -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────
+const _host = (location.hostname==='localhost'||location.hostname==='127.0.0.1')
+  ? 'http://localhost:5000' : `${location.protocol}//${location.hostname}:5000`;
+const API = _host + '/api';
+let adminToken = null;
+let hpPhotoFile = null;
+
+// ─── TOAST ───────────────────────────────────────────────
+function toast(msg, type='info'){
+  const w = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${type==='success'?'✅':type==='error'?'❌':'ℹ️'}</span> ${msg}`;
+  w.appendChild(el);
+  setTimeout(()=>{ el.style.animation='slideOut .3s ease forwards'; setTimeout(()=>el.remove(),300); },3500);
+}
+
+// ─── API HELPER ──────────────────────────────────────────
+async function api(path, {method='GET',body,formData}={}){
+  const headers = {};
+  if (adminToken) headers['Authorization'] = 'Bearer ' + adminToken;
+  const opts = { method, headers };
+  if (formData) { opts.body = formData; }
+  else if (body) { headers['Content-Type']='application/json'; opts.body=JSON.stringify(body); }
+  const res = await fetch(API + path, opts);
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw data;
+  return data;
+}
+
+// ─── LOGIN ───────────────────────────────────────────────
+async function adminLogin(){
+  const email = document.getElementById('a-email').value.trim();
+  const pass  = document.getElementById('a-pass').value;
+  const errEl = document.getElementById('login-err');
+  errEl.style.display = 'none';
+  if (!email||!pass){ errEl.textContent='Email and password required'; errEl.style.display='block'; return; }
+  try {
+    const data = await api('/auth/login',{method:'POST',body:{email,password:pass}});
+    if (data.user.role !== 'superadmin'){
+      errEl.textContent = '⛔ Access denied. Super admin credentials required.';
+      errEl.style.display = 'block'; return;
+    }
+    adminToken = data.token;
+    sessionStorage.setItem('evntly_admin_token', adminToken);
+    sessionStorage.setItem('evntly_admin_user', JSON.stringify(data.user));
+    showAdminShell();
+  } catch(e){
+    errEl.textContent = e.error || e.errors?.[0] || 'Login failed';
+    errEl.style.display = 'block';
+  }
+}
+
+function adminLogout(){
+  sessionStorage.removeItem('evntly_admin_token');
+  sessionStorage.removeItem('evntly_admin_user');
+  adminToken = null;
+  document.getElementById('admin-shell').style.display = 'none';
+  document.getElementById('login-page').style.display = 'flex';
+}
+
+function showAdminShell(){
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('admin-shell').style.display = 'block';
+  loadOverview();
+  loadApprovals();
+  loadHomepagePhotos();
+}
+
+// ─── PANELS ──────────────────────────────────────────────
+function showPanel(id, btn){
+  document.querySelectorAll('.admin-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+id)?.classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(id==='owner-approvals') loadApprovals();
+  if(id==='homepage-photos') loadHomepagePhotos();
+  if(id==='venues')          loadAllVenues();
+  if(id==='users')           loadAllUsers();
+  if(id==='bookings')        loadAllBookings();
+}
+
+// ─── OVERVIEW ────────────────────────────────────────────
+async function loadOverview(){
+  try {
+    const [venues,users,bookings,approvals] = await Promise.all([
+      api('/admin/venues'),
+      api('/admin/users'),
+      api('/admin/bookings'),
+      api('/admin/owner-applications'),
+    ]);
+    document.getElementById('st-venues').textContent   = venues.length;
+    document.getElementById('st-users').textContent    = users.length;
+    document.getElementById('st-bookings').textContent = bookings.length;
+    const pending = approvals.filter(a=>a.status==='pending').length;
+    document.getElementById('st-pending').textContent  = pending;
+    // Notif badge
+    const nb = document.getElementById('approval-notif');
+    if(pending>0){ nb.textContent=pending; nb.style.display='inline-block'; }
+    else nb.style.display='none';
+    // Recent approvals
+    const recent = approvals.filter(a=>a.status==='pending').slice(0,5);
+    document.getElementById('recent-approvals').innerHTML = recent.length
+      ? recent.map(a=>`
+        <div class="owner-pending-card" style="margin-bottom:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-weight:700;color:#fff">${esc(a.name)}</div>
+              <div style="font-size:0.78rem;color:var(--muted)">${esc(a.email)} · ${esc(a.phone||'—')}</div>
+            </div>
+            <span class="pill pill-pending">Pending</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn-view" onclick="viewProofs('${a._id}','${esc(a.name)}',${JSON.stringify(a.proofFiles||[]).replace(/"/g,'&quot;')})">📎 View Proof</button>
+            <button class="btn-approve" onclick="approveOwner('${a._id}')">✅ Approve</button>
+            <button class="btn-reject"  onclick="rejectOwner('${a._id}')">✗ Reject</button>
+          </div>
+        </div>`).join('')
+      : '<div class="empty-state"><div class="empty-icon">✅</div>No pending approvals</div>';
+  } catch(e){ toast('Overview load failed','error'); }
+}
+
+// ─── OWNER APPROVALS ─────────────────────────────────────
+async function loadApprovals(){
+  try {
+    const list = await api('/admin/owner-applications');
+    const el = document.getElementById('approvals-list');
+    if(!list.length){ el.innerHTML='<div class="empty-state"><div class="empty-icon">✅</div>No owner applications yet</div>'; return; }
+    el.innerHTML = list.map(a=>`
+      <div class="owner-pending-card">
+        <div class="owner-pending-header">
+          <div>
+            <div class="owner-info-name">${esc(a.name)}</div>
+            <div class="owner-info-email">${esc(a.email)} · ${esc(a.phone||'—')}</div>
+            <div style="font-size:0.75rem;color:#555;margin-top:4px">${new Date(a.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</div>
+          </div>
+          <span class="pill pill-${a.status||'pending'}">${a.status||'pending'}</span>
+        </div>
+        ${(a.proofFiles||[]).length ? `
+        <div class="owner-proof-wrap">
+          ${(a.proofFiles).map(f=>`<div class="proof-badge" onclick="openProofFile('${f.filename}','${esc(f.originalName||f.filename)}')">📎 ${esc(f.originalName||f.filename)}</div>`).join('')}
+        </div>` : '<div style="font-size:0.78rem;color:#555;margin-top:8px">No proof documents uploaded</div>'}
+        ${a.status==='rejected'&&a.rejectReason ? `<div style="margin-top:8px;font-size:0.78rem;color:#f87171;background:rgba(239,68,68,0.06);padding:8px 12px;border-radius:6px;border:1px solid rgba(239,68,68,0.2)">❌ Rejection reason: ${esc(a.rejectReason)}</div>` : ''}
+        ${(a.status==='pending'||a.status==='rejected') ? `
+        <div class="approval-actions" style="flex-wrap:wrap">
+          <button class="btn-view" onclick="viewProofs('${a._id}','${esc(a.name)}',${JSON.stringify(a.proofFiles||[]).replace(/"/g,'&quot;')})">📎 View Docs</button>
+          <button class="btn-view" style="background:rgba(139,58,42,0.1);color:#c8a96e;border-color:rgba(200,169,110,0.25)" onclick="openMessageModal('${a._id}','${esc(a.name)}','${esc(a.email)}')">✉️ Message</button>
+          ${a.status==='pending' ? `<button class="btn-approve" onclick="approveOwner('${a._id}')">✅ Approve</button>
+          <button class="btn-reject"  onclick="promptReject('${a._id}')">✗ Reject</button>` : ''}
+        </div>
+        <div id="reject-reason-wrap-${a._id}" style="display:none;margin-top:8px">
+          <input class="reject-reason-input" id="reject-reason-${a._id}" placeholder="Enter rejection reason (required)…" />
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn-reject" onclick="confirmReject('${a._id}')">Confirm Rejection</button>
+            <button class="btn-ghost-dark" style="padding:5px 14px;font-size:0.78rem" onclick="cancelReject('${a._id}')">Cancel</button>
+          </div>
+        </div>` : ''}
+      </div>`).join('');
+  } catch(e){ document.getElementById('approvals-list').innerHTML='<div class="empty-state">Failed to load</div>'; }
+}
+
+async function approveOwner(id){
+  if(!confirm('Approve this owner? They will immediately get access to list venues.')) return;
+  try {
+    await api('/admin/owner-applications/'+id+'/approve',{method:'PATCH'});
+    toast('Owner approved! ✅','success');
+    loadApprovals(); loadOverview();
+  } catch(e){ toast(e.error||'Failed','error'); }
+}
+
+function promptReject(id){
+  document.getElementById('reject-reason-wrap-'+id).style.display='block';
+}
+function cancelReject(id){
+  document.getElementById('reject-reason-wrap-'+id).style.display='none';
+}
+async function confirmReject(id){
+  const reason = document.getElementById('reject-reason-'+id).value.trim();
+  if(!reason){ toast('Please enter a rejection reason','error'); return; }
+  try {
+    await api('/admin/owner-applications/'+id+'/reject',{method:'PATCH',body:{reason}});
+    toast('Application rejected','info');
+    loadApprovals(); loadOverview();
+  } catch(e){ toast(e.error||'Failed','error'); }
+}
+function rejectOwner(id){ promptReject(id); }
+
+// ─── PROOF VIEWER ─────────────────────────────────────────
+function viewProofs(id, name, proofFiles){
+  if(typeof proofFiles === 'string') proofFiles = JSON.parse(proofFiles.replace(/&quot;/g,'"'));
+  document.getElementById('proof-modal-title').textContent = '📎 Proof — ' + name;
+  const body = document.getElementById('proof-modal-body');
+  if(!proofFiles||!proofFiles.length){
+    body.innerHTML = '<div class="empty-state">No documents uploaded</div>'; 
+  } else {
+    body.innerHTML = proofFiles.map(f=>{
+      const isPdf = f.filename.toLowerCase().endsWith('.pdf') || (f.originalName||'').toLowerCase().endsWith('.pdf');
+      return `<div class="proof-item">
+        <div class="proof-icon">${isPdf?'📄':'🖼️'}</div>
+        <div>
+          <div class="proof-name">${esc(f.originalName||f.filename)}</div>
+          <div class="proof-type">${isPdf?'PDF Document':'Image'}</div>
+        </div>
+        <button class="proof-open" onclick="openProofFile('${f.filename}','${esc(f.originalName||f.filename)}')">Open</button>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('proof-modal').classList.add('active');
+}
+function openProofFile(filename){
+  window.open(_host+'/uploads/'+filename,'_blank');
+}
+function closeProofModal(){
+  document.getElementById('proof-modal').classList.remove('active');
+}
+
+// ─── HOMEPAGE PHOTOS ─────────────────────────────────────
+let hpPhotoPreviewFile = null;
+function previewHPPhoto(e){
+  const file = e.target.files[0]; if(!file) return;
+  hpPhotoPreviewFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('hp-photo-preview').innerHTML =
+      `<div style="position:relative;display:inline-block"><img src="${ev.target.result}" style="width:160px;height:110px;object-fit:cover;border-radius:8px;border:1px solid #333" /><button onclick="clearHPPhoto()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.7);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:0.7rem">✕</button></div>`;
+  };
+  reader.readAsDataURL(file);
+}
+function clearHPPhoto(){
+  hpPhotoPreviewFile=null;
+  document.getElementById('hp-photo-input').value='';
+  document.getElementById('hp-photo-preview').innerHTML='';
+}
+
+async function addHomepagePhoto(){
+  const title   = document.getElementById('hp-title').value.trim();
+  const caption = document.getElementById('hp-caption').value.trim();
+  const order   = parseInt(document.getElementById('hp-order').value||0);
+  if(!title){ toast('Title is required','error'); return; }
+  if(!hpPhotoPreviewFile){ toast('Please select a photo','error'); return; }
+  const fd = new FormData();
+  fd.append('title',   title);
+  fd.append('caption', caption);
+  fd.append('order',   order);
+  fd.append('photo',   hpPhotoPreviewFile);
+  try {
+    await api('/admin/homepage-photos',{method:'POST',formData:fd});
+    toast('Photo added to showcase! ✅','success');
+    clearHPPhoto();
+    document.getElementById('hp-title').value='';
+    document.getElementById('hp-caption').value='';
+    document.getElementById('hp-order').value='0';
+    loadHomepagePhotos();
+  } catch(e){ toast(e.error||'Failed to add photo','error'); }
+}
+
+async function loadHomepagePhotos(){
+  try {
+    const photos = await api('/admin/homepage-photos');
+    const grid = document.getElementById('hp-photos-grid');
+    if(!photos.length){ grid.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🖼️</div>No photos yet</div>'; return; }
+    grid.innerHTML = photos.map(p=>`
+      <div class="banner-card">
+        ${p.active?'<div class="banner-active-badge">Active</div>':''}
+        <img src="${_host+'/uploads/'+p.photo}" alt="${esc(p.title)}" onerror="this.style.display='none'" />
+        <div class="banner-card-body">
+          <div class="banner-card-title">${esc(p.title)}</div>
+          <div class="banner-card-sub">${esc(p.caption||'')}</div>
+          <div class="banner-card-actions">
+            <button class="btn-${p.active?'reject':'approve'}" style="font-size:0.72rem;padding:4px 10px" onclick="toggleHPPhoto('${p._id}',${!p.active})">${p.active?'Hide':'Show'}</button>
+            <button class="btn-delete" style="font-size:0.72rem;padding:4px 10px" onclick="deleteHPPhoto('${p._id}')">Delete</button>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch(e){ document.getElementById('hp-photos-grid').innerHTML='<div class="empty-state">Failed to load</div>'; }
+}
+
+async function toggleHPPhoto(id, active){
+  try { await api('/admin/homepage-photos/'+id,{method:'PATCH',body:{active}}); loadHomepagePhotos(); }
+  catch(e){ toast(e.error||'Failed','error'); }
+}
+async function deleteHPPhoto(id){
+  if(!confirm('Delete this photo?')) return;
+  try { await api('/admin/homepage-photos/'+id,{method:'DELETE'}); toast('Deleted','info'); loadHomepagePhotos(); }
+  catch(e){ toast(e.error||'Failed','error'); }
+}
+
+// ─── ALL VENUES ──────────────────────────────────────────
+async function loadAllVenues(){
+  try {
+    const venues = await api('/admin/venues');
+    document.getElementById('all-venues-list').innerHTML = venues.length
+      ? `<table class="admin-table"><thead><tr><th>Name</th><th>Type</th><th>Location</th><th>Owner</th><th>Capacity</th><th>Price/hr</th><th>Actions</th></tr></thead><tbody>
+        ${venues.map(v=>`<tr>
+          <td><strong style="color:#fff">${esc(v.name)}</strong></td>
+          <td>${esc(v.type)}</td><td>${esc(v.location)}</td>
+          <td>${esc(v.ownerName||'—')}</td>
+          <td>${v.capacity}</td>
+          <td>₹${(v.price1hr||0).toLocaleString('en-IN')}</td>
+          <td><button class="btn-delete" onclick="adminDeleteVenue('${v._id}','${esc(v.name)}')">🗑️ Delete</button></td>
+        </tr>`).join('')}
+        </tbody></table>`
+      : '<div class="empty-state"><div class="empty-icon">🏛️</div>No venues yet</div>';
+  } catch(e){ document.getElementById('all-venues-list').innerHTML='<div class="empty-state">Failed to load</div>'; }
+}
+
+async function adminDeleteVenue(id, name){
+  if(!confirm(`Permanently delete "${name}"?`)) return;
+  try { await api('/admin/venues/'+id,{method:'DELETE'}); toast('Venue deleted','info'); loadAllVenues(); }
+  catch(e){ toast(e.error||'Failed','error'); }
+}
+
+// ─── ALL USERS ───────────────────────────────────────────
+async function loadAllUsers(){
+  try {
+    const users = await api('/admin/users');
+    document.getElementById('users-tbody').innerHTML = users.map(u=>`
+      <tr>
+        <td><strong style="color:#fff">${esc(u.name)}</strong></td>
+        <td>${esc(u.email)}</td>
+        <td><span class="pill pill-${u.role}">${u.role}</span></td>
+        <td>${esc(u.phone||'—')}</td>
+        <td>${new Date(u.createdAt).toLocaleDateString('en-IN')}</td>
+        <td>
+          ${u.role!=='superadmin'?`<button class="btn-delete" onclick="adminDeleteUser('${u._id}','${esc(u.name)}')">🗑️</button>`:'<span style="color:#555;font-size:0.75rem">Protected</span>'}
+        </td>
+      </tr>`).join('');
+  } catch(e){ document.getElementById('users-tbody').innerHTML='<tr><td colspan="6" class="empty-state">Failed to load</td></tr>'; }
+}
+
+async function adminDeleteUser(id, name){
+  if(!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+  try { await api('/admin/users/'+id,{method:'DELETE'}); toast('User deleted','info'); loadAllUsers(); }
+  catch(e){ toast(e.error||'Failed','error'); }
+}
+
+// ─── ALL BOOKINGS ────────────────────────────────────────
+async function loadAllBookings(){
+  try {
+    const bookings = await api('/admin/bookings');
+    document.getElementById('bookings-tbody').innerHTML = bookings.length
+      ? bookings.map(b=>`<tr>
+          <td style="font-size:0.75rem;color:#888">${esc(b.ref||b._id)}</td>
+          <td>${esc(b.userName||'—')}</td>
+          <td>${esc(b.venueName||'—')}</td>
+          <td>${esc(b.date||'—')}</td>
+          <td>₹${(b.total||0).toLocaleString('en-IN')}</td>
+          <td><span class="pill pill-${b.status==='paid'?'approved':b.status==='pending'?'pending':'rejected'}">${b.status}</span></td>
+        </tr>`).join('')
+      : '<tr><td colspan="6" class="empty-state">No bookings yet</td></tr>';
+  } catch(e){ document.getElementById('bookings-tbody').innerHTML='<tr><td colspan="6" class="empty-state">Failed</td></tr>'; }
+}
+
+// ─── ESCAPE ──────────────────────────────────────────────
+function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
+// ─── MESSAGE MODAL ───────────────────────────────────────────────
+let msgAppId = null;
+function openMessageModal(id, name, email) {
+  msgAppId = id;
+  document.getElementById('msg-modal-title').textContent = '✉️ Message: ' + name;
+  document.getElementById('msg-to-label').textContent = email;
+  document.getElementById('msg-subject').value = '';
+  document.getElementById('msg-body').value = '';
+  document.getElementById('msg-result').style.display = 'none';
+  document.getElementById('msg-modal').classList.add('active');
+}
+function closeMsgModal() {
+  document.getElementById('msg-modal').classList.remove('active');
+  msgAppId = null;
+}
+async function sendAdminMsg() {
+  const subject = document.getElementById('msg-subject').value.trim();
+  const message = document.getElementById('msg-body').value.trim();
+  const res = document.getElementById('msg-result');
+  if (!message) { res.style.display='block'; res.style.background='rgba(239,68,68,0.1)'; res.style.color='#f87171'; res.style.border='1px solid rgba(239,68,68,0.3)'; res.textContent='Please enter a message'; return; }
+  try {
+    await api('/admin/owner-applications/' + msgAppId + '/message', { method:'POST', body:{ subject, message }});
+    res.style.display='block'; res.style.background='rgba(34,197,94,0.08)'; res.style.color='#22c55e'; res.style.border='1px solid rgba(34,197,94,0.25)'; res.textContent='✅ Message sent successfully!';
+    setTimeout(() => closeMsgModal(), 1800);
+  } catch(e) { res.style.display='block'; res.style.background='rgba(239,68,68,0.1)'; res.style.color='#f87171'; res.style.border='1px solid rgba(239,68,68,0.3)'; res.textContent=e.error||'Failed to send'; }
+}
+
+// ─── AUTO-LOGIN FROM SESSION ──────────────────────────────
+(function(){
+  const t = sessionStorage.getItem('evntly_admin_token');
+  const u = sessionStorage.getItem('evntly_admin_user');
+  if(t && u){
+    const user = JSON.parse(u);
+    if(user.role === 'superadmin'){ adminToken = t; showAdminShell(); }
+  }
+})();
+</script>
+</body>
+</html>

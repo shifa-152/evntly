@@ -7,6 +7,8 @@ const _host = (location.hostname === 'localhost' || location.hostname === '127.0
   ? 'http://localhost:5000'
   : `${location.protocol}//${location.hostname}:5000`;
 const API_BASE = _host + '/api';
+// Debug: uncomment to verify API endpoint
+// console.log('API_BASE:', API_BASE);
 
 let currentUser     = null;
 let venuesCache     = [];
@@ -34,6 +36,75 @@ function imgUrl(fn) { return fn ? `${_host}/uploads/${fn}` : ''; }
 function isValidEmail(email) { return emailError(email) === null; }
 
 // Returns null if valid, or an exact error string if invalid
+// ─── LIVE INLINE VALIDATORS ──────────────────────────────────────
+function clearFieldErr(id) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = '';
+}
+function clearFE(id) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = ''; el.style.display = 'none'; }
+}
+function setFieldErr(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = '#ef4444';
+}
+function setFieldOk(inputId, errId) {
+  const input = document.getElementById(inputId);
+  const err   = document.getElementById(errId);
+  if (input) { input.classList.remove('input-error'); input.classList.add('input-ok'); }
+  if (err)   err.textContent = '';
+}
+function liveEmailValidate(inputId, errId) {
+  const val = document.getElementById(inputId)?.value.trim() || '';
+  const input = document.getElementById(inputId);
+  const err   = document.getElementById(errId);
+  if (!val) { if (input) input.classList.remove('input-ok','input-error'); if(err) err.textContent = ''; return; }
+  const msg = emailError(val);
+  if (msg) {
+    if (input) { input.classList.add('input-error'); input.classList.remove('input-ok'); }
+    if (err)   err.textContent = msg;
+  } else {
+    if (input) { input.classList.remove('input-error'); input.classList.add('input-ok'); }
+    if (err)   err.textContent = '';
+  }
+}
+function livePasswordValidate(inputId, errId) {
+  const val = document.getElementById(inputId)?.value || '';
+  const input = document.getElementById(inputId);
+  const err   = document.getElementById(errId);
+  if (!val) { if(input) input.classList.remove('input-ok','input-error'); if(err) err.textContent=''; return; }
+  if (!isValidPassword(val)) {
+    if(input) { input.classList.add('input-error'); input.classList.remove('input-ok'); }
+    if(err)   err.textContent = 'Password must be 6–128 characters';
+  } else {
+    if(input) { input.classList.remove('input-error'); input.classList.add('input-ok'); }
+    if(err)   err.textContent = '';
+  }
+}
+function livePhoneValidate(inputId, errId) {
+  const val = document.getElementById(inputId)?.value.trim() || '';
+  const input = document.getElementById(inputId);
+  const err   = document.getElementById(errId);
+  if (!val) { if(input) input.classList.remove('input-ok','input-error'); if(err) err.textContent=''; return; }
+  const msg = phoneError(val);
+  if (msg) {
+    if(input) { input.classList.add('input-error'); input.classList.remove('input-ok'); }
+    if(err)   err.textContent = msg;
+  } else {
+    if(input) { input.classList.remove('input-error'); input.classList.add('input-ok'); }
+    if(err)   err.textContent = '';
+  }
+}
+function owLiveEmailValidate() {
+  const val = document.getElementById('ow-email')?.value.trim() || '';
+  if (!val) { owFieldError('ow-email',''); return; }
+  const msg = emailError(val);
+  owFieldError('ow-email', msg || '');
+}
+
 function emailError(email) {
   if (!email) return 'Email is required';
 
@@ -149,6 +220,58 @@ function phoneError(phone) {
   return null;
 }
 
+function liveNameValidate(inputId, errId) {
+  const val   = document.getElementById(inputId)?.value.trim() || '';
+  const input = document.getElementById(inputId);
+  const err   = document.getElementById(errId);
+  if (!val) { if(input) input.classList.remove('input-ok','input-error'); if(err) err.textContent=''; return; }
+  if (!isValidName(val)) {
+    if(input) { input.classList.add('input-error'); input.classList.remove('input-ok'); }
+    if(err)   err.textContent = 'Name can only contain letters, spaces, apostrophes or hyphens — no numbers or symbols';
+  } else {
+    if(input) { input.classList.remove('input-error'); input.classList.add('input-ok'); }
+    if(err)   err.textContent = '';
+  }
+}
+function liveConfirmValidate(pwId, confirmId, errId) {
+  const pw      = document.getElementById(pwId)?.value || '';
+  const confirm = document.getElementById(confirmId)?.value || '';
+  const input   = document.getElementById(confirmId);
+  const err     = document.getElementById(errId);
+  if (!confirm) { if(input) input.classList.remove('input-ok','input-error'); if(err) err.textContent=''; return; }
+  if (pw !== confirm) {
+    if(input) { input.classList.add('input-error'); input.classList.remove('input-ok'); }
+    if(err)   err.textContent = 'Passwords do not match';
+  } else {
+    if(input) { input.classList.remove('input-error'); input.classList.add('input-ok'); }
+    if(err)   err.textContent = '';
+  }
+}
+function regStrength() {
+  const pw   = document.getElementById('reg-password')?.value || '';
+  const fill = document.getElementById('reg-strength-fill');
+  const text = document.getElementById('reg-strength-text');
+  if (!fill || !text) return;
+  let score = 0;
+  if (pw.length >= 6)              score++;
+  if (pw.length >= 10)             score++;
+  if (/[A-Z]/.test(pw))           score++;
+  if (/[0-9]/.test(pw))           score++;
+  if (/[^A-Za-z0-9]/.test(pw))   score++;
+  const levels = [
+    { w:'0%',   c:'#ef4444', t:'' },
+    { w:'25%',  c:'#ef4444', t:'Weak — too short' },
+    { w:'45%',  c:'#f59e0b', t:'Fair — add numbers or symbols' },
+    { w:'65%',  c:'#3b82f6', t:'Good' },
+    { w:'85%',  c:'#22c55e', t:'Strong' },
+    { w:'100%', c:'#16a34a', t:'Very Strong ✓' },
+  ];
+  const l = levels[Math.min(score, 5)];
+  fill.style.width      = l.w;
+  fill.style.background = l.c;
+  text.textContent      = l.t;
+  text.style.color      = l.c;
+}
 function toast(msg, type = "info") {
   const tc = document.getElementById('toast-container');
   const el = document.createElement('div');
@@ -210,11 +333,9 @@ async function checkConnection() {
   const el = document.getElementById('api-status');
   try {
     await fetch(API_BASE + '/ping', { signal: AbortSignal.timeout(4000) });
-    el.className = 'api-status online';
-    el.innerHTML = '<div class="api-dot"></div><span>Live</span>';
+    if (el) { el.className = 'api-status online'; el.innerHTML = '<div class="api-dot"></div><span>Live</span>'; }
   } catch {
-    el.className = 'api-status offline';
-    el.innerHTML = '<div class="api-dot"></div><span>Offline</span>';
+    if (el) { el.className = 'api-status offline'; el.innerHTML = '<div class="api-dot"></div><span>Offline</span>'; }
   }
 }
 
@@ -275,17 +396,64 @@ async function register() {
   const name     = document.getElementById('reg-name').value.trim();
   const email    = document.getElementById('reg-email').value.trim();
   const password = document.getElementById('reg-password').value;
+  const confirm  = document.getElementById('reg-confirm').value;
   const phone    = document.getElementById('reg-phone').value.trim();
   const role     = document.getElementById('reg-role').value;
   const errors   = [];
-  if (!name)                      errors.push('Full name is required');
-  else if (!isValidName(name))    errors.push('Name can only contain letters, spaces, apostrophes or hyphens — no numbers or symbols');
-  if (!email)                     errors.push('Email is required');
-  else { const _ee = emailError(email); if (_ee) errors.push(_ee); }
-  if (!password)                  errors.push('Password is required');
-  else if (!isValidPassword(password)) errors.push('Password must be 6–128 characters');
+
+  // Name
+  if (!name) {
+    errors.push('Full name is required');
+    setFieldErr('reg-name-err', 'Full name is required');
+    document.getElementById('reg-name')?.classList.add('input-error');
+  } else if (!isValidName(name)) {
+    const msg = 'Name can only contain letters, spaces, apostrophes or hyphens';
+    errors.push(msg); setFieldErr('reg-name-err', msg);
+    document.getElementById('reg-name')?.classList.add('input-error');
+  }
+
+  // Email
+  if (!email) {
+    errors.push('Email is required');
+    setFieldErr('reg-email-err', 'Email is required');
+    document.getElementById('reg-email')?.classList.add('input-error');
+  } else {
+    const _ee = emailError(email);
+    if (_ee) {
+      errors.push(_ee); setFieldErr('reg-email-err', _ee);
+      document.getElementById('reg-email')?.classList.add('input-error');
+    }
+  }
+
+  // Password
+  if (!password) {
+    errors.push('Password is required');
+    setFieldErr('reg-pw-err', 'Password is required');
+    document.getElementById('reg-password')?.classList.add('input-error');
+  } else if (!isValidPassword(password)) {
+    const msg = 'Password must be 6–128 characters';
+    errors.push(msg); setFieldErr('reg-pw-err', msg);
+    document.getElementById('reg-password')?.classList.add('input-error');
+  }
+
+  // Confirm password
+  if (!confirm) {
+    errors.push('Please confirm your password');
+    setFieldErr('reg-confirm-err', 'Please confirm your password');
+    document.getElementById('reg-confirm')?.classList.add('input-error');
+  } else if (password !== confirm) {
+    errors.push('Passwords do not match');
+    setFieldErr('reg-confirm-err', 'Passwords do not match');
+    document.getElementById('reg-confirm')?.classList.add('input-error');
+  }
+
+  // Phone (optional but validated if provided)
   const phoneErr = phoneError(phone);
-  if (phoneErr) errors.push(phoneErr);
+  if (phoneErr) {
+    errors.push(phoneErr); setFieldErr('reg-phone-err', phoneErr);
+    document.getElementById('reg-phone')?.classList.add('input-error');
+  }
+
   if (errors.length) return showErrors('reg-errors','reg-errors-list', errors);
   try {
     const data = await api('/auth/register', { method:'POST', body:{ name, email, password, phone, role } });
@@ -310,8 +478,21 @@ function owFieldError(id, msg) {
   document.getElementById(id)?.classList.toggle('ow-invalid', !!msg);
 }
 function owClearErrors() {
-  ['ow-name','ow-email','ow-password','ow-phone'].forEach(id => owFieldError(id, ''));
+  ['ow-name','ow-email','ow-password','ow-phone','ow-proof'].forEach(id => owFieldError(id, ''));
 }
+
+let owProofFiles = [];
+function previewOwnerProofs(e) {
+  Array.from(e.target.files).forEach(file => {
+    owProofFiles.push(file);
+    const preview = document.getElementById('ow-proof-preview');
+    const div = document.createElement('div');
+    div.style.cssText = 'background:rgba(200,169,110,0.1);border:1px solid rgba(200,169,110,0.25);border-radius:6px;padding:6px 12px;font-size:0.78rem;color:rgba(255,255,255,0.7);display:flex;align-items:center;gap:8px';
+    div.innerHTML = `<span>${file.name.endsWith('.pdf') ? '📄' : '🖼️'}</span><span>${file.name}</span>`;
+    preview.appendChild(div);
+  });
+}
+
 async function registerOwner() {
   owClearErrors();
   const name     = document.getElementById('ow-name').value.trim();
@@ -322,7 +503,7 @@ async function registerOwner() {
   if (!name) {
     owFieldError('ow-name', 'Full name is required'); hasError = true;
   } else if (!isValidName(name)) {
-    owFieldError('ow-name', 'Name can only contain letters, spaces, apostrophes or hyphens — no numbers or special characters'); hasError = true;
+    owFieldError('ow-name', 'Name can only contain letters, spaces, apostrophes or hyphens'); hasError = true;
   }
   if (!email) {
     owFieldError('ow-email', 'Email is required'); hasError = true;
@@ -337,17 +518,33 @@ async function registerOwner() {
   }
   const owPhoneErr = phoneError(phone);
   if (owPhoneErr) { owFieldError('ow-phone', owPhoneErr); hasError = true; }
+  if (!owProofFiles.length) {
+    owFieldError('ow-proof', 'Please upload at least one proof document'); hasError = true;
+  }
   if (hasError) return;
+
+  const btn = document.getElementById('ow-submit-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+
   try {
-    const data = await api('/auth/register', { method:'POST', body:{ name, email, password, phone, role:'owner' } });
-    localStorage.setItem('evntly_token', data.token);
-    localStorage.setItem('evntly_user',  JSON.stringify(data.user));
-    currentUser = data.user;
-    updateNavForUser();
+    const fd = new FormData();
+    fd.append('name',     name);
+    fd.append('email',    email);
+    fd.append('password', password);
+    fd.append('phone',    phone);
+    owProofFiles.forEach(f => fd.append('proofFiles', f));
+    await api('/owner/apply', { method:'POST', formData: fd });
     owClearErrors();
-    toast('Owner account created! 🎉', 'success');
-    showDashboard();
-  } catch(e) { toast(e.error || 'Registration failed','error'); }
+    owProofFiles = [];
+    document.getElementById('ow-proof-preview').innerHTML = '';
+    document.getElementById('ow-success-msg').style.display = 'block';
+    btn.textContent = 'Application Submitted ✅';
+    toast('Application submitted! We\'ll review and get back to you. 📋', 'success');
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Submit Application →';
+    toast(e.error || e.errors?.[0] || 'Submission failed', 'error');
+  }
 }
 
 function logout() {
@@ -471,9 +668,9 @@ function renderVenuesWithDate(venues, date) {
       : `<div class="venue-emoji">${VENUE_EMOJIS[v.type]||'🏛️'}</div>`;
     const badge = v._allBlocked
       ? `<div class="venue-badge badge-booked">🔒 Booked on ${date}</div>`
-      : `<div class="venue-badge badge-available">Available</div>`;
+      : ``;
     return `
-    <div class="venue-card" onclick="${v._allBlocked ? "toast('This venue is fully booked on ' + '" + date + "'. Try another date.','info')" : "openBookingModal('" + v._id + "')"}">
+    <div class="venue-card" onclick="${v._allBlocked ? "toast('This venue is fully booked on ' + '" + date + "'. Try another date.','info')" : "openVenueDetails('" + v._id + "')"}">
       <div class="venue-img">
         ${cover}
         ${badge}
@@ -485,13 +682,14 @@ function renderVenuesWithDate(venues, date) {
         <div class="venue-tags">
           <span class="tag">${escHtml(v.type)}</span>
           <span class="tag">👥 ${v.capacity}</span>
+          ${v.venueSize ? `<span class="tag">📐 ${escHtml(v.venueSize)}</span>` : ''}
           ${v.platePrice > 0 ? `<span class="tag">🍽️ ₹${v.platePrice}/plate</span>` : ''}
         </div>
         <div class="venue-footer">
           <div class="venue-price">${fmt(v.price1hr)} <span>/hr</span></div>
           ${v._allBlocked
             ? `<button class="btn-book" style="background:var(--brick);color:white;cursor:not-allowed" disabled>Fully Booked</button>`
-            : `<button class="btn-book" onclick="event.stopPropagation();openBookingModal('${v._id}')">Book Now</button>`}
+            : `<button class="btn-book" onclick="event.stopPropagation();openVenueDetails('${v._id}')">Check Availability</button>`}
         </div>
       </div>
     </div>`;
@@ -509,10 +707,9 @@ function renderVenues(venues) {
       ? `<img src="${imgUrl(v.coverImage)}" alt="${escHtml(v.name)}" onerror="this.style.display='none'" />`
       : `<div class="venue-emoji">${VENUE_EMOJIS[v.type]||'🏛️'}</div>`;
     return `
-    <div class="venue-card" onclick="openBookingModal('${v._id}')">
+    <div class="venue-card" onclick="openVenueDetails('${v._id}')">
       <div class="venue-img">
         ${cover}
-        <div class="venue-badge badge-available">Available</div>
         ${v.rating ? `<div class="venue-rating">★ ${v.rating}</div>` : ''}
       </div>
       <div class="venue-info">
@@ -521,15 +718,186 @@ function renderVenues(venues) {
         <div class="venue-tags">
           <span class="tag">${escHtml(v.type)}</span>
           <span class="tag">👥 ${v.capacity}</span>
+          ${v.venueSize ? `<span class="tag">📐 ${escHtml(v.venueSize)}</span>` : ''}
           ${v.platePrice > 0 ? `<span class="tag">🍽️ ₹${v.platePrice}/plate</span>` : ''}
         </div>
         <div class="venue-footer">
           <div class="venue-price">${fmt(v.price1hr)} <span>/hr</span></div>
-          <button class="btn-book" onclick="event.stopPropagation();openBookingModal('${v._id}')">Book Now</button>
+          <button class="btn-book" onclick="event.stopPropagation();openVenueDetails('${v._id}')">Check Availability</button>
         </div>
       </div>
     </div>`;
   }).join('');
+}
+
+// ─── VENUE DETAIL VIEW (public — no login needed) ─────────────────
+async function openVenueDetails(venueId) {
+  let v;
+  try {
+    v = await api('/venues/' + venueId + '?_=' + Date.now());
+  } catch(e) {
+    toast('Could not load venue details', 'error');
+    return;
+  }
+  currentVenue = v;
+  const titleEl = document.getElementById('booking-modal-title');
+  if (titleEl) titleEl.textContent = v.name;
+  renderVenueDetailsOnly(v);
+  openModal('booking-modal');
+}
+
+function renderVenueDetailsOnly(v) {
+  const allImages = [];
+  if (v.coverImage) allImages.push(v.coverImage);
+  (v.images || []).forEach(function(img) { if (img && !allImages.includes(img)) allImages.push(img); });
+
+  let galleryHtml = '';
+  if (allImages.length) {
+    let thumbsHtml = '';
+    if (allImages.length > 1) {
+      let tInner = '';
+      allImages.forEach(function(img, i) {
+        var u = imgUrl(img);
+        tInner += '<img src="' + u + '" class="vd-thumb' + (i===0?' active':'') + '" onclick="setMainPhoto(\'' + u + '\',this)" onerror="this.style.display=\'none\'" />';
+      });
+      thumbsHtml = '<div class="vd-thumbs">' + tInner + '</div>';
+    }
+    galleryHtml = '<div class="vd-gallery"><div class="vd-main-img" id="vd-main-img"><img src="' + imgUrl(allImages[0]) + '" alt="' + escHtml(v.name) + '" onerror="this.src=\'\'" id="vd-main-photo" /></div>' + thumbsHtml + '</div>';
+  } else {
+    galleryHtml = '<div class="vd-gallery-placeholder">' + (VENUE_EMOJIS[v.type] || '🏛️') + '</div>';
+  }
+
+  const amenities = v.amenities || [];
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  const minDate = tomorrow.toISOString().split('T')[0];
+
+  let ratingTag = v.rating ? '<span class="tag">★ ' + v.rating + ' (' + (v.reviewCount||0) + ' reviews)</span>' : '';
+  let descHtml  = v.description ? '<p class="vd-desc">' + escHtml(v.description) + '</p>' : '';
+  let venueSizeTag = v.venueSize ? '<span class="tag">📐 ' + escHtml(v.venueSize) + '</span>' : '';
+
+  // Build per-hour pricing table
+  let pricingRows = '';
+  for (let h = 1; h <= 7; h++) {
+    const key = 'price' + h + 'hr';
+    if (v[key]) pricingRows += '<div class="vd-price-item"><span class="vd-price-val">' + fmt(v[key]) + '</span><span class="vd-price-label">/' + h + 'hr</span></div>';
+  }
+  if (!pricingRows) pricingRows = '<div class="vd-price-item"><span class="vd-price-val">' + fmt(v.price1hr) + '</span><span class="vd-price-label">/hr</span></div>';
+  let plateHtml = v.platePrice > 0 ? '<div class="vd-price-item"><span class="vd-price-val">₹' + v.platePrice + '</span><span class="vd-price-label">/plate</span></div>' : '';
+
+  let amenityInfoHtml = '';
+  if (amenities.length) {
+    let tags = amenities.map(function(a) {
+      return '<span class="vd-amenity-tag">' + escHtml(a.label) + (a.price > 0 ? ' (' + fmt(a.price) + '/hr)' : '') + '</span>';
+    }).join('');
+    amenityInfoHtml = '<div class="vd-amenities"><div class="vd-section-title">✨ Facilities</div><div class="vd-amenity-tags">' + tags + '</div></div>';
+  }
+
+  // Availability checker — public, no login needed
+  const availHtml = `
+    <div class="vd-avail-section">
+      <div class="vd-section-title">📅 Check Availability</div>
+      <div style="background:rgba(74,94,79,0.08);border:1px solid rgba(74,94,79,0.25);border-radius:6px;padding:9px 14px;font-size:0.82rem;color:#4a5e4f;margin-bottom:12px">🕐 <strong>Open:</strong> ${escHtml(v.openTime||'09:00')} – ${escHtml(v.closeTime||'22:00')}</div>
+      <div class="booking-grid">
+        <div class="form-field"><label class="form-label">Select Date</label><input class="form-input" type="date" id="ca-date" min="${minDate}" onchange="checkAvailSlots()" /></div>
+        <div class="form-field"><label class="form-label">Duration</label>
+          <select class="form-input" id="ca-hours" onchange="checkAvailSlots()">
+            <option value="1">1 Hour</option><option value="2">2 Hours</option><option value="3">3 Hours</option>
+            <option value="4">4 Hours</option><option value="5">5 Hours</option><option value="6">6 Hours</option><option value="7">7 Hours</option>
+          </select>
+        </div>
+      </div>
+      <div id="ca-slots-wrap" style="margin-bottom:16px"><span style="color:var(--muted);font-size:0.85rem">Select a date to see available slots</span></div>
+      <div id="ca-price-display" style="margin-bottom:12px"></div>
+      <button class="btn-confirm" style="width:100%" onclick="proceedToBookFromDetail()">Book Now →</button>
+    </div>`;
+
+  document.getElementById('booking-body').innerHTML =
+    galleryHtml +
+    '<div class="vd-info">' +
+      '<div class="vd-meta">' +
+        '<span class="tag">' + escHtml(v.type) + '</span>' +
+        '<span class="tag">📍 ' + escHtml(v.location) + '</span>' +
+        '<span class="tag">👥 Up to ' + v.capacity + ' guests</span>' +
+        venueSizeTag + ratingTag +
+      '</div>' +
+      descHtml +
+      '<div class="vd-pricing">' + pricingRows + plateHtml + '</div>' +
+      amenityInfoHtml +
+    '</div>' +
+    availHtml;
+}
+
+function checkAvailSlots() {
+  const v = currentVenue;
+  if (!v) return;
+  const date = document.getElementById('ca-date')?.value;
+  const hours = parseInt(document.getElementById('ca-hours')?.value || 1);
+  const wrap = document.getElementById('ca-slots-wrap');
+  const priceDisplay = document.getElementById('ca-price-display');
+  if (!date) { wrap.innerHTML = '<span style="color:var(--muted);font-size:0.85rem">Select a date to see available slots</span>'; if(priceDisplay) priceDisplay.innerHTML=''; return; }
+  const today = new Date().toISOString().split('T')[0];
+  if (date <= today) { wrap.innerHTML = '<div class="slot-blocked-msg">⚠️ Same-day bookings not allowed. Select a future date.</div>'; if(priceDisplay) priceDisplay.innerHTML=''; return; }
+
+  const starts = getStartTimes(v.openTime||'09:00', v.closeTime||'22:00', hours);
+  if (!starts.length) { wrap.innerHTML = '<div class="slot-blocked-msg">⚠️ No ' + hours + '-hr slots fit within operating hours.</div>'; if(priceDisplay) priceDisplay.innerHTML=''; return; }
+
+  const blocked    = new Set(v.blockedRanges || []);
+  const dayBlocked = blocked.has(date);
+  const legacyBlk  = new Set();
+  (v.slots||[]).forEach(s => { if ((s.blockedDates||[]).includes(date)) legacyBlk.add(s.time); });
+
+  wrap.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">' + starts.map(function(start) {
+    const end   = minsToTime(timeToMins(start) + hours*60);
+    const key   = date+'|'+start+'-'+end;
+    const label = start+' – '+end;
+    const isBlk = dayBlocked || blocked.has(key) || legacyBlk.has(start);
+    if (isBlk) return '<button class="slot-btn blocked" disabled>🔒 '+label+'</button>';
+    return '<button class="slot-btn" onclick="selectCASlot(this,\''+start+'\',\''+end+'\')">'+label+'</button>';
+  }).join('') + '</div>';
+
+  // Show price for selected duration
+  const priceKey = 'price' + hours + 'hr';
+  const price = v[priceKey] || (v.price1hr * hours);
+  if (priceDisplay) priceDisplay.innerHTML = '<div style="background:rgba(200,169,110,0.1);border:1px solid rgba(200,169,110,0.3);border-radius:6px;padding:9px 14px;font-size:0.88rem;color:var(--gold);font-weight:600">💰 ' + hours + ' hr price: <strong>' + fmt(price) + '</strong></div>';
+}
+
+function selectCASlot(btn, startTime, endTime) {
+  document.querySelectorAll('#ca-slots-wrap .slot-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  btn.dataset.selected = '1';
+}
+
+function proceedToBookFromDetail() {
+  if (!currentUser) {
+    closeModal('booking-modal');
+    openModal('auth-modal');
+    toast('Please sign in to book a venue', 'info');
+    return;
+  }
+  if (currentUser.role === 'owner') {
+    toast('Owners cannot book venues. Please use a customer account.', 'info');
+    return;
+  }
+  renderVenueDetailModal(currentVenue);
+  // Pre-fill date/hours from availability check if selected
+  const caDate = document.getElementById('ca-date');
+  const caHours = document.getElementById('ca-hours');
+  const selectedSlot = document.querySelector('#ca-slots-wrap .slot-btn.selected');
+  if (caDate?.value) {
+    setTimeout(() => {
+      const bkDate = document.getElementById('bk-date');
+      const bkHours = document.getElementById('bk-hours');
+      if (bkDate) { bkDate.value = caDate.value; }
+      if (bkHours && caHours) { bkHours.value = caHours.value; }
+      refreshSlots();
+      if (selectedSlot) {
+        setTimeout(() => {
+          const slot = document.querySelector('#bk-slots .slot-btn:not(.blocked)');
+          if (slot) { /* try to match */ }
+        }, 100);
+      }
+    }, 50);
+  }
 }
 
 // ─── VENUE DETAIL MODAL (images + booking form) ──────────────────
@@ -585,7 +953,15 @@ function renderVenueDetailModal(v) {
   // Venue info
   let ratingTag = v.rating ? '<span class="tag">★ ' + v.rating + ' (' + (v.reviewCount||0) + ' reviews)</span>' : '';
   let descHtml  = v.description ? '<p class="vd-desc">' + escHtml(v.description) + '</p>' : '';
-  let price2Html = v.price2hr ? '<div class="vd-price-item"><span class="vd-price-val">' + fmt(v.price2hr) + '</span><span class="vd-price-label">/2hr</span></div>' : '';
+  let venueSizeTag = v.venueSize ? '<span class="tag">📐 ' + escHtml(v.venueSize) + '</span>' : '';
+
+  // Build per-hour pricing display
+  let pricingRows = '';
+  for (let h = 1; h <= 7; h++) {
+    const key = 'price' + h + 'hr';
+    if (v[key]) pricingRows += '<div class="vd-price-item"><span class="vd-price-val">' + fmt(v[key]) + '</span><span class="vd-price-label">/' + h + 'hr</span></div>';
+  }
+  if (!pricingRows) pricingRows = '<div class="vd-price-item"><span class="vd-price-val">' + fmt(v.price1hr) + '</span><span class="vd-price-label">/hr</span></div>';
   let plateHtml  = v.platePrice > 0 ? '<div class="vd-price-item"><span class="vd-price-val">₹' + v.platePrice + '</span><span class="vd-price-label">/plate</span></div>' : '';
 
   let amenityInfoHtml = '';
@@ -622,13 +998,10 @@ function renderVenueDetailModal(v) {
         '<span class="tag">' + escHtml(v.type) + '</span>' +
         '<span class="tag">📍 ' + escHtml(v.location) + '</span>' +
         '<span class="tag">👥 Up to ' + v.capacity + ' guests</span>' +
-        ratingTag +
+        venueSizeTag + ratingTag +
       '</div>' +
       descHtml +
-      '<div class="vd-pricing">' +
-        '<div class="vd-price-item"><span class="vd-price-val">' + fmt(v.price1hr) + '</span><span class="vd-price-label">/hr</span></div>' +
-        price2Html + plateHtml +
-      '</div>' +
+      '<div class="vd-pricing">' + pricingRows + plateHtml + '</div>' +
       amenityInfoHtml +
     '</div>' +
     '<div class="vd-book-section">' +
@@ -753,7 +1126,11 @@ function calcBookingPrice() {
   if (!currentVenue) return;
   const v     = currentVenue;
   const hours = parseInt(document.getElementById('bk-hours')?.value || 1);
-  let base    = hours >= 2 && v.price2hr ? v.price2hr : v.price1hr * hours;
+  // Use the specific hour price if set, otherwise fall back to price1hr * hours
+  const priceKey = 'price' + hours + 'hr';
+  let base = v[priceKey] || (v.price1hr * hours);
+  // Show the effective /hr rate
+  const effectiveRate = Math.round(base / hours);
   let addon   = 0;
   document.querySelectorAll('#booking-body .slot-btn.selected[data-price]').forEach(b => {
     addon += parseFloat(b.dataset.price || 0) * hours;
@@ -764,7 +1141,7 @@ function calcBookingPrice() {
   const total      = base + addon + plates;
   const bd = document.getElementById('bk-breakdown');
   if (bd) bd.innerHTML = `
-    <div class="pb-row"><span>Venue (${hours} hr${hours>1?'s':''})</span><span>${fmt(base)}</span></div>
+    <div class="pb-row"><span>Venue (${hours} hr${hours>1?'s':''} @ ${fmt(effectiveRate)}/hr)</span><span>${fmt(base)}</span></div>
     ${addon > 0 ? `<div class="pb-row"><span>Add-ons</span><span>${fmt(addon)}</span></div>` : ''}
     ${plates > 0 ? `<div class="pb-row"><span>Plate charges (${guests} guests)</span><span>${fmt(plates)}</span></div>` : ''}
     <div class="pb-total"><span>Total</span><span>${fmt(total)}</span></div>
@@ -794,7 +1171,8 @@ async function confirmBooking() {
 
   const facilities = [];
   document.querySelectorAll('#booking-body .slot-btn.selected[data-key]').forEach(b => facilities.push(b.dataset.key));
-  const base     = hours >= 2 && v.price2hr ? v.price2hr : v.price1hr * hours;
+  const priceKey = 'price' + hours + 'hr';
+  const base     = v[priceKey] || (v.price1hr * hours);
   let addon      = 0;
   document.querySelectorAll('#booking-body .slot-btn.selected[data-price]').forEach(b => {
     addon += parseFloat(b.dataset.price || 0) * hours;
@@ -1500,6 +1878,54 @@ function getAmenities(tbodyId) {
 }
 
 // ─── VENUE FORM VALIDATION ────────────────────────────────────────
+function validateVenueFormFull(prefix) {
+  // Returns array of error messages; shows inline errors too
+  const errs = [];
+  const g = id => document.getElementById(prefix + '-' + id);
+  const showE = (id, msg) => { const el = document.getElementById(prefix + '-' + id + '-err'); if(el){el.textContent=msg; el.style.display='block';} };
+  const clearE = id => { const el = document.getElementById(prefix + '-' + id + '-err'); if(el){el.textContent=''; el.style.display='none';} };
+
+  // Name
+  if (!g('name')?.value.trim()) { showE('name','Venue name is required'); errs.push('Venue name is required'); } else clearE('name');
+
+  // Location
+  if (!g('location')?.value.trim()) { showE('loc','Area/locality is required'); errs.push('Area/locality is required'); } else clearE('loc');
+
+  // Address
+  const addr = document.getElementById(prefix + '-address')?.value.trim();
+  if (!addr) { showE('addr','Full address is required'); errs.push('Full address is required'); } else clearE('addr');
+
+  // City
+  const city = document.getElementById(prefix + '-city')?.value.trim();
+  if (!city) { showE('city','City is required'); errs.push('City is required'); } else clearE('city');
+
+  // State
+  const state = document.getElementById(prefix + '-state')?.value.trim();
+  if (!state) { showE('state','State is required'); errs.push('State is required'); } else clearE('state');
+
+  // PIN
+  const pin = document.getElementById(prefix + '-pincode')?.value.trim();
+  if (pin && !/^\d{6}$/.test(pin)) { showE('pin','PIN code must be exactly 6 digits'); errs.push('PIN code must be exactly 6 digits'); }
+  else clearE('pin');
+
+  // Capacity
+  const cap = parseInt(g('capacity')?.value);
+  if (!cap || cap < 1) { showE('cap','Capacity must be at least 1'); errs.push('Capacity must be at least 1'); } else clearE('cap');
+
+  // Price
+  const p1 = parseFloat(g('price1')?.value);
+  if (!p1 || p1 < 1) { showE('p1','Price per hour must be greater than 0'); errs.push('Price per hour must be > 0'); } else clearE('p1');
+
+  // Venue email (optional but if given must be valid)
+  const vEmail = document.getElementById(prefix + '-venue-email')?.value.trim();
+  if (vEmail) {
+    const eErr = emailError(vEmail);
+    if (eErr) { showE('email', eErr); errs.push('Venue email: ' + eErr); } else clearE('email');
+  }
+
+  return errs;
+}
+
 function validateVenueForm(prefix) {
   const name  = document.getElementById(prefix + '-name').value.trim();
   const loc   = document.getElementById(prefix + '-location').value.trim();
@@ -1545,7 +1971,8 @@ function validateVenueForm(prefix) {
 // ─── ADD VENUE ────────────────────────────────────────────────────
 async function submitAddVenue() {
   clearErrors('av-errors');
-  if (!validateVenueForm('av')) { showErrors('av-errors','av-errors-list', ['Please fix the errors below']); return; }
+  const errs = validateVenueFormFull('av');
+  if (errs.length) { showErrors('av-errors','av-errors-list', errs); return; }
   const btn = document.getElementById('av-submit-btn');
   btn.disabled = true; btn.textContent = 'Uploading…';
   try {
@@ -1553,10 +1980,20 @@ async function submitAddVenue() {
     fd.append('name',        document.getElementById('av-name').value.trim());
     fd.append('type',        document.getElementById('av-type').value);
     fd.append('location',    document.getElementById('av-location').value.trim());
+    fd.append('address',     document.getElementById('av-address')?.value.trim() || '');
+    fd.append('city',        document.getElementById('av-city')?.value.trim() || '');
+    fd.append('state',       document.getElementById('av-state')?.value.trim() || '');
+    fd.append('pincode',     document.getElementById('av-pincode')?.value.trim() || '');
+    fd.append('venueEmail',  document.getElementById('av-venue-email')?.value.trim() || '');
+    fd.append('venuePhone',  document.getElementById('av-venue-phone')?.value.trim() || '');
     fd.append('description', document.getElementById('av-desc').value);
     fd.append('capacity',    document.getElementById('av-capacity').value);
+    fd.append('venueSize',   document.getElementById('av-venue-size')?.value.trim() || '');
     fd.append('price1hr',    document.getElementById('av-price1').value);
-    fd.append('price2hr',    document.getElementById('av-price2').value || '0');
+    for (let h = 2; h <= 7; h++) {
+      const val = document.getElementById('av-price' + h)?.value;
+      if (val) fd.append('price' + h + 'hr', val);
+    }
     fd.append('platePrice',  document.getElementById('av-plate').value || '0');
     fd.append('slots',       JSON.stringify([]));
     fd.append('openTime',    document.getElementById('av-open-time')?.value || '09:00');
@@ -1598,9 +2035,18 @@ async function openEditVenue(venueId) {
     document.getElementById('ev-name').value     = v.name || '';
     document.getElementById('ev-type').value     = v.type || 'Banquet Hall';
     document.getElementById('ev-location').value = v.location || '';
+    const _evAddr  = document.getElementById('ev-address');  if(_evAddr)  _evAddr.value  = v.address  || '';
+    const _evCity  = document.getElementById('ev-city');     if(_evCity)  _evCity.value  = v.city     || '';
+    const _evState = document.getElementById('ev-state');    if(_evState) _evState.value = v.state    || '';
+    const _evPin   = document.getElementById('ev-pincode');  if(_evPin)   _evPin.value   = v.pincode  || '';
+    const _evVE    = document.getElementById('ev-venue-email'); if(_evVE) _evVE.value    = v.venueEmail || '';
+    const _evVP    = document.getElementById('ev-venue-phone'); if(_evVP) _evVP.value    = v.venuePhone || '';
     document.getElementById('ev-capacity').value = v.capacity || '';
+    const evVS = document.getElementById('ev-venue-size'); if(evVS) evVS.value = v.venueSize || '';
     document.getElementById('ev-price1').value   = v.price1hr || '';
-    document.getElementById('ev-price2').value   = v.price2hr || '';
+    for (let h = 2; h <= 7; h++) {
+      const el = document.getElementById('ev-price' + h); if(el) el.value = v['price'+h+'hr'] || '';
+    }
     document.getElementById('ev-plate').value    = v.platePrice || 0;
     document.getElementById('ev-desc').value     = v.description || '';
     const coverDiv = document.getElementById('ev-current-cover');
@@ -1651,10 +2097,20 @@ async function submitEditVenue() {
     fd.append('name',        document.getElementById('ev-name').value.trim());
     fd.append('type',        document.getElementById('ev-type').value);
     fd.append('location',    document.getElementById('ev-location').value.trim());
+    fd.append('address',     document.getElementById('ev-address')?.value.trim() || '');
+    fd.append('city',        document.getElementById('ev-city')?.value.trim() || '');
+    fd.append('state',       document.getElementById('ev-state')?.value.trim() || '');
+    fd.append('pincode',     document.getElementById('ev-pincode')?.value.trim() || '');
+    fd.append('venueEmail',  document.getElementById('ev-venue-email')?.value.trim() || '');
+    fd.append('venuePhone',  document.getElementById('ev-venue-phone')?.value.trim() || '');
     fd.append('description', document.getElementById('ev-desc').value);
     fd.append('capacity',    document.getElementById('ev-capacity').value);
+    fd.append('venueSize',   document.getElementById('ev-venue-size')?.value.trim() || '');
     fd.append('price1hr',    document.getElementById('ev-price1').value);
-    fd.append('price2hr',    document.getElementById('ev-price2').value || '0');
+    for (let h = 2; h <= 7; h++) {
+      const val = document.getElementById('ev-price' + h)?.value;
+      fd.append('price' + h + 'hr', val || '0');
+    }
     fd.append('platePrice',  document.getElementById('ev-plate').value || '0');
     fd.append('slots',       JSON.stringify(evSlots));
     fd.append('openTime',    document.getElementById('ev-open-time')?.value || '09:00');
@@ -1821,6 +2277,50 @@ async function submitReview() {
   } catch(e) { showErrors('rv-errors','rv-errors-list', [e.error || 'Failed to submit review']); }
 }
 
+// ─── HOMEPAGE SHOWCASE ────────────────────────────────────────────
+let showcaseIndex = 0;
+let showcasePhotos = [];
+
+async function loadShowcase() {
+  try {
+    const photos = await api('/homepage-photos');
+    if (!photos || !photos.length) return;
+    showcasePhotos = photos;
+    const track = document.getElementById('showcase-track');
+    const dots   = document.getElementById('showcase-dots');
+    if (!track) return;
+    track.innerHTML = photos.map(p => `
+      <div style="min-width:100%;position:relative;height:420px;flex-shrink:0">
+        <img src="${imgUrl(p.photo)}" alt="${escHtml(p.title)}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'" />
+        <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.65) 0%,transparent 60%)"></div>
+        <div style="position:absolute;bottom:40px;left:48px;color:#fff">
+          <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,0.5)">${escHtml(p.title)}</div>
+          ${p.caption ? `<div style="font-size:0.9rem;opacity:0.8;margin-top:4px;text-shadow:0 1px 4px rgba(0,0,0,0.5)">${escHtml(p.caption)}</div>` : ''}
+        </div>
+      </div>`).join('');
+    dots.innerHTML = photos.map((_, i) =>
+      `<div onclick="goToSlide(${i})" style="width:8px;height:8px;border-radius:50%;background:${i===0?'#fff':'rgba(255,255,255,0.4)'};cursor:pointer;transition:background .3s" id="dot-${i}"></div>`
+    ).join('');
+    document.getElementById('showcase-section').style.display = 'block';
+    // Auto-slide every 4s
+    setInterval(() => showcaseSlide(1), 4000);
+  } catch(e) { /* silently skip */ }
+}
+
+function showcaseSlide(dir) {
+  if (!showcasePhotos.length) return;
+  showcaseIndex = (showcaseIndex + dir + showcasePhotos.length) % showcasePhotos.length;
+  goToSlide(showcaseIndex);
+}
+function goToSlide(i) {
+  showcaseIndex = i;
+  const track = document.getElementById('showcase-track');
+  if (track) track.style.transform = `translateX(-${i * 100}%)`;
+  document.querySelectorAll('[id^="dot-"]').forEach((d, idx) => {
+    d.style.background = idx === i ? '#fff' : 'rgba(255,255,255,0.4)';
+  });
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────
 (async () => {
   const searchDate = document.getElementById('search-date');
@@ -1829,5 +2329,6 @@ async function submitReview() {
   await restoreSession();
   await loadVenues();
   loadReviews();
+  loadShowcase();
   if (currentUser) showDashboard();
 })();
