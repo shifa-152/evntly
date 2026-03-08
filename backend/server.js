@@ -39,7 +39,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5000';
 const BRAND = 'EVNTLY';
 
 async function sendMail({ to, subject, html }) {
@@ -101,6 +101,9 @@ app.options('*', cors());
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 app.use('/uploads', express.static(UPLOADS_DIR));
+// Serve frontend HTML files from Express
+const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
+app.use(express.static(FRONTEND_DIR, { extensions: ['html'] }));
 
 
 // ─── MULTER — Memory Storage + Sharp Compression ──────────────────────────────
@@ -115,7 +118,7 @@ const upload = multer({
 
 // ─── MONGOOSE CONNECT ─────────────────────────────────────────────────────────
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/evntly')
-  .then(async () => { console.log('✅ MongoDB connected'); await ensureSuperAdmin(); })
+  .then(async () => { console.log('✅ MongoDB connected'); await ensureSuperAdmin(); await seedDefaultPlans(); })
   .catch(err => console.error('❌ MongoDB error:', err));
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -215,13 +218,19 @@ const reviewSchema = new mongoose.Schema({
 
 // ── OWNER APPLICATION SCHEMA ─────────────────────────────────────
 const ownerApplicationSchema = new mongoose.Schema({
-  name:        { type: String, required: true },
-  email:       { type: String, required: true, unique: true, lowercase: true },
-  password:    { type: String, required: true },
-  phone:       { type: String, default: '' },
-  proofFiles:  [{ filename: String, originalName: String }],
-  status:      { type: String, enum: ['pending','approved','rejected'], default: 'pending' },
-  rejectReason:{ type: String, default: '' },
+  name:         { type: String, required: true },
+  email:        { type: String, required: true, unique: true, lowercase: true },
+  password:     { type: String, required: true },
+  phone:        { type: String, default: '' },
+  venueName:    { type: String, default: '' },   // ← new
+  venueAddress: { type: String, default: '' },   // ← new
+  proofFiles:   [{ filename: String, originalName: String }],
+  status:       { type: String, enum: ['pending','approved','rejected'], default: 'pending' },
+  rejectReason: { type: String, default: '' },
+  plan:         { type: String, default: 'basic' },
+  planPaid:     { type: Boolean, default: false },
+  paymentRef:   { type: String, default: '' },
+  listingEnabled: { type: Boolean, default: false }, // ← true only after payment confirmed
 }, { timestamps: true });
 
 // ── HOMEPAGE PHOTO SCHEMA ─────────────────────────────────────────
@@ -240,6 +249,32 @@ const Review  = mongoose.model('Review',  reviewSchema);
 const OwnerApplication = mongoose.model('OwnerApplication', ownerApplicationSchema);
 const HomepagePhoto    = mongoose.model('HomepagePhoto',    homepagePhotoSchema);
 
+// ── PLATFORM PLAN SCHEMA & MODEL ─────────────────────────────────────────────
+const platformPlanSchema = new mongoose.Schema({
+  name:      { type: String, required: true, trim: true },
+  key:       { type: String, required: true, unique: true, lowercase: true, trim: true },
+  price:     { type: Number, required: true, min: 0 },
+  maxVenues: { type: Number, default: 1 },       // -1 = unlimited
+  features:  [{ type: String }],
+  isPopular: { type: Boolean, default: false },
+  isActive:  { type: Boolean, default: true },
+  sortOrder: { type: Number, default: 0 },
+}, { timestamps: true });
+const PlatformPlan = mongoose.model('PlatformPlan', platformPlanSchema);
+
+async function seedDefaultPlans() {
+  try {
+    if (await PlatformPlan.countDocuments() === 0) {
+      await PlatformPlan.insertMany([
+        { name:'Basic',    key:'basic',    price:4999,  maxVenues:1,  features:['1 venue listing','Standard support','Basic analytics'],                                   isPopular:false, sortOrder:1 },
+        { name:'Standard', key:'standard', price:9999,  maxVenues:3,  features:['3 venue listings','Priority support','Advanced analytics','Featured badge'],              isPopular:true,  sortOrder:2 },
+        { name:'Premium',  key:'premium',  price:19999, maxVenues:-1, features:['Unlimited venues','Dedicated support','Featured listings','Custom branding'], isPopular:false, sortOrder:3 },
+      ]);
+      console.log('✅ Default platform plans seeded');
+    }
+  } catch(e) { console.error('Plan seed error:', e.message); }
+}
+
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function genRef() {
   return 'EVT' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2,5).toUpperCase();
@@ -248,8 +283,8 @@ function genRef() {
 async function saveImage(buffer) {
   const filename = Date.now() + '_' + Math.random().toString(36).slice(2) + '.webp';
   await sharp(buffer)
-    .resize({ width: 1200, height: 900, fit: 'inside', withoutEnlargement: true })
-    .webp({ quality: 80 })
+    .resize({ width: 2400, height: 1800, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 95 })
     .toFile(path.join(UPLOADS_DIR, filename));
   return filename;
 }
@@ -348,7 +383,20 @@ app.get('/api/venues/:id', async (req, res) => {
 });
 
 // POST /api/venues — Create
-app.post('/api/venues', ownerMiddleware, upload.fields([
+// Guard: owner must have paid AND have listing enabled before creating venues
+async function requirePlanPaid(req, res, next) {
+  if (req.user.role === 'admin' || req.user.role === 'superadmin') return next();
+  try {
+    const application = await OwnerApplication.findOne({ email: req.user.email });
+    if (!application)
+      return res.status(403).json({ error: 'PLAN_NOT_PAID', message: 'No owner application found.' });
+    if (!application.listingEnabled)
+      return res.status(403).json({ error: 'PLAN_NOT_PAID', message: 'Your account is not yet activated. Complete payment to start listing venues.' });
+    next();
+  } catch(e) { res.status(500).json({ error: e.message }); }
+}
+
+app.post('/api/venues', ownerMiddleware, requirePlanPaid, upload.fields([
   { name: 'coverImage', maxCount: 1 },
   { name: 'images', maxCount: 15 }
 ]), async (req, res) => {
@@ -805,7 +853,10 @@ app.post('/api/owner/apply', upload.array('proofFiles', 10), async (req, res) =>
     }
 
     // FIX 2: renamed from `app_` — was shadowing the Express `app` variable
-    const ownerApp = await OwnerApplication.create({ name, email: email.toLowerCase(), password: hash, phone, proofFiles });
+    const plan         = req.body.plan         || 'basic';
+    const venueName    = req.body.venueName    || '';
+    const venueAddress = req.body.venueAddress || '';
+    const ownerApp = await OwnerApplication.create({ name, email: email.toLowerCase(), password: hash, phone, proofFiles, plan, venueName, venueAddress });
     res.status(201).json({ ok: true, message: 'Application submitted for review' });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -829,38 +880,28 @@ app.patch('/api/admin/owner-applications/:id/approve', superadminMiddleware, asy
     if (!application) return res.status(404).json({ error: 'Application not found' });
     if (application.status === 'approved') return res.status(400).json({ error: 'Already approved' });
 
-    // Create the actual user account
-    const user = await User.create({
-      name:     application.name,
-      email:    application.email,
-      password: application.password, // already hashed
-      phone:    application.phone,
-      role:     'owner',
-    });
+    // Only mark as approved — do NOT create User yet.
+    // User account is created after payment is confirmed (listingEnabled → true).
     application.status = 'approved';
     await application.save();
 
-    // Send approval email with login credentials
+    // Notify owner: approved, but payment required before listing
     await sendMail({
       to: application.email,
-      subject: `🎉 Your EVNTLY venue owner application is approved!`,
+      subject: `✅ Your EVNTLY application is approved — complete payment to activate`,
       html: emailHtml({
-        title: "Congratulations — You're Approved!",
+        title: "Application Approved!",
         body: `<p>Hi <strong>${application.name}</strong>,</p>
-               <p>Great news! Your EVNTLY venue owner application has been <strong style="color:#22c55e">approved</strong>. You can now log in and start listing your venues.</p>
-               <table style="background:#f9f5ee;border-radius:8px;padding:16px;width:100%;margin:16px 0">
-                 <tr><td style="color:#888;font-size:0.82rem;padding:4px 0">Email</td><td style="font-weight:700;color:#1a1a1a">${application.email}</td></tr>
-                 <tr><td style="color:#888;font-size:0.82rem;padding:4px 0">Your password</td><td style="font-weight:700;color:#1a1a1a">The password you set during registration</td></tr>
-               </table>
-               <p>Head to EVNTLY and click <strong>Sign In</strong> to access your owner dashboard.</p>`,
-        btnText: 'Go to EVNTLY →',
+               <p>🎉 Your EVNTLY venue owner application has been <strong style="color:#22c55e">approved</strong>!</p>
+               <p>The final step is completing the one-time platform fee payment. The admin will send you a payment link shortly.</p>
+               <p>Once payment is confirmed, your account will be fully activated and you can start listing your venues.</p>`,
+        btnText: 'Visit EVNTLY →',
         btnUrl: CLIENT_URL,
-        footer: 'You can reset your password anytime using the Forgot Password link on the sign-in page.',
+        footer: 'If you do not receive a payment link within 24 hours, please contact us.',
       }),
     });
 
-    const token = jwt.sign({ id: user._id, role: user.role, name: user.name, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ ok: true, user, token });
+    res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1093,6 +1134,212 @@ app.post('/api/admin/owner-applications/:id/message', superadminMiddleware, asyn
       }),
     });
 
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  ADMIN — SEND PAYMENT LINK TO OWNER AFTER APPROVAL
+// ═════════════════════════════════════════════════════════════════════════════
+app.post('/api/admin/owner-applications/:id/send-payment-link', superadminMiddleware, async (req, res) => {
+  try {
+    const application = await OwnerApplication.findById(req.params.id);
+    if (!application) return res.status(404).json({ error: 'Application not found' });
+    if (application.status !== 'approved') return res.status(400).json({ error: 'Application must be approved first' });
+
+    const planKey = application.plan || 'basic';
+    const planDoc = await PlatformPlan.findOne({ key: planKey }) ||
+                    { name: planKey.charAt(0).toUpperCase()+planKey.slice(1), price: 4999, maxVenues: 1 };
+    const planName  = planDoc.name;
+    const planPrice = planDoc.price;
+    const maxVLabel = planDoc.maxVenues === -1 ? 'Unlimited venues' : planDoc.maxVenues + ' venue listing(s)';
+
+    const paymentLink = `${CLIENT_URL}/payment-confirm.html?appId=${application._id}&plan=${encodeURIComponent(planName)}&amount=${planPrice}&email=${encodeURIComponent(application.email)}`;
+
+    await sendMail({
+      to: application.email,
+      subject: `💳 Complete your EVNTLY ${planName} Plan payment`,
+      html: emailHtml({
+        title: 'Complete Your Platform Fee Payment',
+        body: `<p>Hi <strong>${application.name}</strong>,</p>
+               <p>🎉 Your EVNTLY venue owner application has been <strong style="color:#22c55e">approved</strong>!</p>
+               <p>To activate your account, please complete the one-time platform fee for the <strong>${planName} Plan</strong>.</p>
+               <table style="background:#f9f5ee;border-radius:8px;padding:16px;width:100%;margin:16px 0">
+                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Plan</td><td style="font-weight:700;color:#1a1a1a">${planName}</td></tr>
+                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Amount</td><td style="font-weight:800;color:#c8a96e;font-size:1.2rem">₹${planPrice.toLocaleString('en-IN')}</td></tr>
+                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Access</td><td style="font-weight:700;color:#22c55e">${maxVLabel}</td></tr>
+               </table>
+               <p>After payment, your login credentials will be sent and you can start listing venues immediately.</p>`,
+        btnText: `Pay ₹${planPrice.toLocaleString('en-IN')} & Activate Account →`,
+        btnUrl: paymentLink,
+        footer: 'This payment link is valid for 48 hours. Contact us if you have questions.',
+      }),
+    });
+
+    res.json({ ok: true, message: 'Payment link sent to ' + application.email, paymentLink });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── CONFIRM PAYMENT (called from payment page) ───────────────────────────────
+app.post('/api/owner-applications/:id/confirm-payment', async (req, res) => {
+  try {
+    const { paymentRef } = req.body;
+    const application = await OwnerApplication.findById(req.params.id);
+    if (!application) return res.status(404).json({ error: 'Application not found' });
+    if (application.planPaid) return res.json({ ok: true, already: true, message: 'Already paid' });
+    if (application.status !== 'approved') return res.status(400).json({ error: 'Application has not been approved yet.' });
+
+    application.planPaid       = true;
+    application.listingEnabled = true;
+    application.paymentRef     = paymentRef || 'TXN_' + Date.now();
+    await application.save();
+
+    // Create User account NOW (not at approval time)
+    let user = await User.findOne({ email: application.email });
+    if (!user) {
+      user = await User.create({
+        name:     application.name,
+        email:    application.email,
+        password: application.password, // already hashed
+        phone:    application.phone,
+        role:     'owner',
+      });
+    }
+
+    const planDoc = await PlatformPlan.findOne({ key: application.plan || 'basic' });
+
+    // Send login credentials email
+    await sendMail({
+      to: application.email,
+      subject: `🎉 Welcome to EVNTLY — Your account is now active!`,
+      html: emailHtml({
+        title: 'Payment Confirmed — Account Activated!',
+        body: `<p>Hi <strong>${application.name}</strong>,</p>
+               <p>Your payment has been received and your EVNTLY venue owner account is now <strong style="color:#22c55e">fully activated</strong>!</p>
+               <table style="background:#f9f5ee;border-radius:8px;padding:16px;width:100%;margin:16px 0;border-collapse:collapse">
+                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Login Email</td><td style="font-weight:700;color:#1a1a1a">${application.email}</td></tr>
+                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Password</td><td style="font-weight:700;color:#1a1a1a">The password you set during registration</td></tr>
+                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Plan</td><td style="font-weight:700;color:#c8a96e">${planDoc?.name || application.plan}</td></tr>
+                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Payment Ref</td><td style="font-family:monospace;color:#555;font-size:0.82rem">${application.paymentRef}</td></tr>
+               </table>
+               <p>Sign in now to your owner dashboard and start listing your venues!</p>`,
+        btnText: 'Sign In & List Your Venue →',
+        btnUrl: CLIENT_URL,
+        footer: 'Keep this email as your payment receipt. Ref: ' + application.paymentRef,
+      }),
+    });
+
+    res.json({ ok: true, message: 'Payment confirmed — login credentials sent to your email' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── ADMIN: GET APPLICATION DETAILS (for venue view modal) ────────────────────
+app.get('/api/admin/owner-applications/:id', superadminMiddleware, async (req, res) => {
+  try {
+    const app = await OwnerApplication.findById(req.params.id);
+    if (!app) return res.status(404).json({ error: 'Not found' });
+    res.json(app);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── ADMIN: MARK PAYMENT AS CONFIRMED MANUALLY ───────────────────────────────
+app.patch('/api/admin/owner-applications/:id/mark-paid', superadminMiddleware, async (req, res) => {
+  try {
+    const application = await OwnerApplication.findById(req.params.id);
+    if (!application) return res.status(404).json({ error: 'Not found' });
+    application.planPaid       = true;
+    application.listingEnabled = true;
+    application.paymentRef     = req.body.paymentRef || 'MANUAL_' + Date.now();
+    await application.save();
+
+    // Create user account if not yet created
+    let user = await User.findOne({ email: application.email });
+    if (!user) {
+      user = await User.create({
+        name: application.name, email: application.email,
+        password: application.password, phone: application.phone, role: 'owner',
+      });
+    }
+
+    await sendMail({
+      to: application.email,
+      subject: `✅ Your EVNTLY account is now active!`,
+      html: emailHtml({
+        title: 'Account Activated!',
+        body: `<p>Hi <strong>${application.name}</strong>,</p>
+               <p>Your EVNTLY venue owner account is now <strong style="color:#22c55e">fully activated</strong>. Sign in with your registered email and password to start listing venues.</p>
+               <table style="background:#f9f5ee;border-radius:8px;padding:16px;width:100%;margin:16px 0;border-collapse:collapse">
+                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Email</td><td style="font-weight:700;color:#1a1a1a">${application.email}</td></tr>
+                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Plan</td><td style="font-weight:700;color:#c8a96e">${(application.plan||'basic').toUpperCase()}</td></tr>
+                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Payment Ref</td><td style="font-family:monospace;color:#555">${application.paymentRef}</td></tr>
+               </table>`,
+        btnText: 'Sign In to EVNTLY →', btnUrl: CLIENT_URL,
+      }),
+    });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  PLATFORM PLAN ROUTES
+// ═════════════════════════════════════════════════════════════════════════════
+
+// PUBLIC — active plans for registration form
+app.get('/api/plans', async (req, res) => {
+  try {
+    res.json(await PlatformPlan.find({ isActive: true }).sort({ sortOrder: 1 }));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN — all plans (including inactive)
+app.get('/api/admin/plans', superadminMiddleware, async (req, res) => {
+  try {
+    res.json(await PlatformPlan.find().sort({ sortOrder: 1 }));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN — create plan
+app.post('/api/admin/plans', superadminMiddleware, async (req, res) => {
+  try {
+    const { name, key, price, maxVenues, features, isPopular, sortOrder } = req.body;
+    if (!name || !key) return res.status(400).json({ error: 'Name and key are required' });
+    if (await PlatformPlan.findOne({ key: key.toLowerCase() }))
+      return res.status(400).json({ error: 'A plan with this key already exists' });
+    const plan = await PlatformPlan.create({
+      name, key: key.toLowerCase().replace(/\s+/g,'_'),
+      price: parseFloat(price) || 0,
+      maxVenues: parseInt(maxVenues) || 1,
+      features: Array.isArray(features) ? features : String(features||'').split('\n').map(f=>f.trim()).filter(Boolean),
+      isPopular: !!isPopular, sortOrder: parseInt(sortOrder) || 0, isActive: true,
+    });
+    res.status(201).json(plan);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN — update plan
+app.put('/api/admin/plans/:id', superadminMiddleware, async (req, res) => {
+  try {
+    const { name, price, maxVenues, features, isPopular, sortOrder, isActive } = req.body;
+    const upd = {};
+    if (name      !== undefined) upd.name      = name;
+    if (price     !== undefined) upd.price     = parseFloat(price) || 0;
+    if (maxVenues !== undefined) upd.maxVenues = parseInt(maxVenues) || 1;
+    if (isPopular !== undefined) upd.isPopular = !!isPopular;
+    if (sortOrder !== undefined) upd.sortOrder = parseInt(sortOrder) || 0;
+    if (isActive  !== undefined) upd.isActive  = !!isActive;
+    if (features  !== undefined) upd.features  = Array.isArray(features) ? features : String(features).split('\n').map(f=>f.trim()).filter(Boolean);
+    const plan = await PlatformPlan.findByIdAndUpdate(req.params.id, upd, { new: true });
+    if (!plan) return res.status(404).json({ error: 'Plan not found' });
+    res.json(plan);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN — delete plan
+app.delete('/api/admin/plans/:id', superadminMiddleware, async (req, res) => {
+  try {
+    const plan = await PlatformPlan.findByIdAndDelete(req.params.id);
+    if (!plan) return res.status(404).json({ error: 'Plan not found' });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

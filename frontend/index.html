@@ -22,6 +22,15 @@
   .form-input.input-error{border-color:#ef4444 !important}
   .form-input.input-ok{border-color:#22c55e !important}
   .clearFE{display:none}
+
+.ow-plan-card{background:rgba(255,255,255,0.04);border:1.5px solid rgba(200,169,110,0.2);border-radius:10px;padding:14px;cursor:pointer;transition:all .2s;text-align:center;position:relative}
+.ow-plan-card:hover{border-color:rgba(200,169,110,0.5)}
+.ow-plan-card.selected{border-color:var(--gold,#c8a96e);background:rgba(200,169,110,0.08)}
+.ow-plan-name{font-family:'Playfair Display',serif;font-size:0.9rem;font-weight:700;color:#fff;margin-bottom:3px}
+.ow-plan-price{font-size:1.1rem;font-weight:700;color:#c8a96e;margin-bottom:6px}
+.ow-plan-feat{font-size:0.7rem;color:rgba(255,255,255,0.45);line-height:1.6}
+.ow-plan-badge{position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#c8a96e;color:#1a1a1a;font-size:0.6rem;font-weight:700;padding:2px 8px;border-radius:8px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap}
+
 </style>
 </head>
 <body>
@@ -183,6 +192,17 @@
       </div>
       <div class="df-group">
         <label class="dark-label">Venue Proof Documents * <span style="font-size:0.72rem;font-weight:400;opacity:0.65">(Venue Agreement / Light Bill / Water Bill / Photos)</span></label>
+        <!-- Platform Plan Selection — loaded dynamically from /api/plans -->
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-size:0.75rem;color:rgba(200,169,110,0.7);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Choose Your Platform Plan</label>
+          <input type="hidden" id="ow-plan" value="basic" />
+          <div id="ow-plan-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+            <!-- Cards injected by loadOwnerPlans() in evntly.js -->
+            <div style="grid-column:1/-1;padding:20px;text-align:center;color:rgba(255,255,255,0.3);font-size:0.8rem">Loading plans…</div>
+          </div>
+          <div style="font-size:0.72rem;color:rgba(255,255,255,0.35);margin-top:8px;text-align:center">* Payment required after approval. You can list venues only after payment is completed.</div>
+        </div>
+
         <div id="ow-proof-area" style="border:2px dashed rgba(200,169,110,0.4);border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:rgba(0,0,0,0.2)" onclick="document.getElementById('ow-proof-input').click()">
           <input type="file" id="ow-proof-input" multiple accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none" onchange="previewOwnerProofs(event)" />
           <div style="font-size:1.5rem;margin-bottom:6px">📎</div>

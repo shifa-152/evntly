@@ -158,6 +158,53 @@ body{font-family:'DM Sans',sans-serif;background:#0f0f0f;color:#e8e8e8;min-heigh
 .owner-pending-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .reject-reason-input{background:#111;border:1px solid #333;border-radius:6px;padding:8px 12px;color:#fff;font-size:0.82rem;width:100%;margin-top:8px;outline:none;font-family:inherit}
 .reject-reason-input:focus{border-color:#ef4444}
+
+/* ── PLAN CARDS ── */
+.plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+.plan-card{background:#111;border:2px solid #2a2a2a;border-radius:12px;padding:18px;cursor:pointer;transition:all .2s;text-align:center}
+.plan-card:hover{border-color:var(--gold)}
+.plan-card.selected{border-color:var(--gold);background:rgba(200,169,110,0.06)}
+.plan-name{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;color:#fff;margin-bottom:4px}
+.plan-price{font-size:1.4rem;font-weight:700;color:var(--gold);margin-bottom:8px}
+.plan-features{font-size:0.75rem;color:#888;line-height:1.7}
+.plan-badge{display:inline-block;background:rgba(200,169,110,0.15);color:var(--gold);border:1px solid rgba(200,169,110,0.3);border-radius:10px;padding:2px 8px;font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+
+/* ── VENUE DETAIL VIEW ── */
+.vdm-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:16px}
+.vdm-gallery img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;border:1px solid #2a2a2a}
+.vdm-section{background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:14px;margin-bottom:12px}
+.vdm-section-title{font-size:0.7rem;color:var(--gold);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px}
+.vdm-row{display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid #1a1a1a;font-size:0.84rem}
+.vdm-row:last-child{border-bottom:none}
+.vdm-label{color:#666;font-size:0.78rem}
+.vdm-value{color:#ccc;text-align:right;max-width:60%}
+.showcase-add-btn{background:rgba(200,169,110,0.1);color:var(--gold);border:1px solid rgba(200,169,110,0.3);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:700;margin-top:4px;display:block;width:100%;text-align:center;transition:all .2s}
+.showcase-add-btn:hover{background:rgba(200,169,110,0.2)}
+
+/* ── APPLICATION CARD ── */
+.app-plan-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-left:6px}
+.app-plan-basic{background:rgba(74,94,79,0.15);color:#6db87a;border:1px solid rgba(74,94,79,0.3)}
+.app-plan-standard{background:rgba(200,169,110,0.12);color:var(--gold);border:1px solid rgba(200,169,110,0.25)}
+.app-plan-premium{background:rgba(139,58,42,0.15);color:#f87171;border:1px solid rgba(139,58,42,0.3)}
+.payment-status-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:10px;font-size:0.7rem;font-weight:700}
+.psb-paid{background:rgba(34,197,94,0.1);color:#22c55e;border:1px solid rgba(34,197,94,0.25)}
+.psb-unpaid{background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.25)}
+
+
+.quick-email-btn{background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:14px 16px;cursor:pointer;text-align:left;width:100%;transition:all .2s;color:#ccc}
+.quick-email-btn:hover{border-color:var(--gold);background:rgba(200,169,110,0.05)}
+.qe-btn-title{font-size:0.88rem;font-weight:600;color:#fff;margin-bottom:3px}
+.qe-btn-sub{font-size:0.75rem;color:#666}
+
+.admin-input{width:100%;background:#111;border:1px solid #333;border-radius:8px;padding:9px 12px;color:#fff;font-size:0.85rem;box-sizing:border-box;outline:none;transition:border-color .2s}
+.admin-input:focus{border-color:var(--gold)}
+.plan-card-admin{background:#141414;border:1px solid #2a2a2a;border-radius:12px;padding:18px 20px;display:flex;align-items:center;gap:16px;margin-bottom:10px}
+.plan-card-admin.inactive{opacity:0.45}
+.pca-badge{font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:6px;text-transform:uppercase;letter-spacing:0.5px;background:rgba(200,169,110,0.15);color:var(--gold);border:1px solid rgba(200,169,110,0.3)}
+.pca-popular{background:rgba(200,169,110,0.9);color:#1a1a1a;border:none}
+.payment-status-badge{font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:6px}
+.psb-paid{background:rgba(34,197,94,0.12);color:#4ade80;border:1px solid rgba(34,197,94,0.25)}
+.psb-unpaid{background:rgba(234,179,8,0.12);color:#facc15;border:1px solid rgba(234,179,8,0.25)}
 </style>
 </head>
 <body>
@@ -206,6 +253,7 @@ body{font-family:'DM Sans',sans-serif;background:#0f0f0f;color:#e8e8e8;min-heigh
         <div class="sidebar-section-label">Content</div>
         <button class="sidebar-btn" onclick="showPanel('homepage-photos',this)">🖼️ Homepage Photos</button>
         <button class="sidebar-btn" onclick="showPanel('venues',this)">🏢 All Venues</button>
+        <button class="sidebar-btn" onclick="showPanel('plans',this)">💳 Platform Plans</button>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-section-label">Users</div>
@@ -306,6 +354,63 @@ body{font-family:'DM Sans',sans-serif;background:#0f0f0f;color:#e8e8e8;min-heigh
         </table>
       </div>
 
+      <!-- ═ PLATFORM PLANS ═ -->
+      <div class="admin-panel" id="panel-plans">
+        <div class="panel-title">Platform Plans</div>
+        <div class="panel-sub">Manage subscription plans shown to venue owners during registration.</div>
+
+        <!-- Add / Edit form -->
+        <div style="background:#141414;border:1px solid #2a2a2a;border-radius:12px;padding:24px;margin-bottom:28px">
+          <div class="section-label" style="margin-top:0" id="plan-form-title">Add New Plan</div>
+          <input type="hidden" id="edit-plan-id" value="" />
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+            <div>
+              <label style="font-size:0.72rem;color:#888;display:block;margin-bottom:5px">Plan Name *</label>
+              <input id="pf-name" type="text" class="admin-input" placeholder="e.g. Basic" />
+            </div>
+            <div>
+              <label style="font-size:0.72rem;color:#888;display:block;margin-bottom:5px">Plan Key * <span style="font-size:0.65rem;opacity:0.5">(unique id, no spaces)</span></label>
+              <input id="pf-key" type="text" class="admin-input" placeholder="e.g. basic" />
+            </div>
+            <div>
+              <label style="font-size:0.72rem;color:#888;display:block;margin-bottom:5px">Price (₹) *</label>
+              <input id="pf-price" type="number" class="admin-input" placeholder="4999" min="0" />
+            </div>
+            <div>
+              <label style="font-size:0.72rem;color:#888;display:block;margin-bottom:5px">Max Venues <span style="font-size:0.65rem;opacity:0.5">(-1 = unlimited)</span></label>
+              <input id="pf-max" type="number" class="admin-input" placeholder="1" />
+            </div>
+            <div>
+              <label style="font-size:0.72rem;color:#888;display:block;margin-bottom:5px">Sort Order</label>
+              <input id="pf-order" type="number" class="admin-input" placeholder="1" min="0" />
+            </div>
+            <div style="display:flex;gap:20px;align-items:flex-end;padding-bottom:2px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;color:#ccc;cursor:pointer">
+                <input type="checkbox" id="pf-popular" style="accent-color:#c8a96e;width:15px;height:15px" /> Mark as Popular
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;color:#ccc;cursor:pointer">
+                <input type="checkbox" id="pf-active" checked style="accent-color:#c8a96e;width:15px;height:15px" /> Active
+              </label>
+            </div>
+          </div>
+          <div style="margin-bottom:16px">
+            <label style="font-size:0.72rem;color:#888;display:block;margin-bottom:5px">Features <span style="font-size:0.65rem;opacity:0.5">(one per line)</span></label>
+            <textarea id="pf-features" class="admin-input" rows="4" placeholder="1 venue listing&#10;Standard support&#10;Basic analytics" style="resize:vertical;font-family:inherit"></textarea>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn-primary-gold" onclick="savePlan()">💾 Save Plan</button>
+            <button class="btn-ghost-dark" onclick="resetPlanForm()">✕ Cancel</button>
+          </div>
+          <div id="plan-form-msg" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:0.83rem"></div>
+        </div>
+
+        <!-- Plans list -->
+        <div class="section-label">All Plans</div>
+        <div id="plans-list">
+          <div style="padding:40px;text-align:center;color:#555">Loading plans…</div>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -342,6 +447,71 @@ body{font-family:'DM Sans',sans-serif;background:#0f0f0f;color:#e8e8e8;min-heigh
       <div style="display:flex;gap:10px">
         <button class="btn-primary-gold" onclick="sendAdminMsg()">Send Message →</button>
         <button class="btn-ghost-dark" onclick="closeMsgModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ VENUE DETAIL MODAL (view-only for super admin) ════════════════════════ -->
+<div class="modal-overlay" id="venue-detail-modal">
+  <div class="modal-box" style="max-width:780px">
+    <div class="modal-header">
+      <div class="modal-title" id="vdm-title">Venue Details</div>
+      <button class="modal-close" onclick="closeModal('venue-detail-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="vdm-body"></div>
+  </div>
+</div>
+
+<!-- ══ PLAN PAYMENT MODAL ════════════════════════════════════════ -->
+<div class="modal-overlay" id="plan-modal">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title">💳 Send Payment Link</div>
+      <button class="modal-close" onclick="closeModal('plan-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="plan-modal-body"></div>
+  </div>
+</div>
+
+
+<!-- ══ QUICK EMAIL MODAL ════════════════════════════════════════ -->
+<div class="modal-overlay" id="quick-email-modal">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title">⚡ Quick Email Templates</div>
+      <button class="modal-close" onclick="closeModal('quick-email-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:0.8rem;color:#888;margin-bottom:16px">Sending to: <strong id="qe-to-label" style="color:#ccc"></strong></div>
+      <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px">Select a template</div>
+      <div id="qe-templates" style="display:flex;flex-direction:column;gap:8px">
+        <button class="quick-email-btn" onclick="selectQuickEmail('invalid_proof')">
+          <div class="qe-btn-title">📄 Invalid Proof Documents</div>
+          <div class="qe-btn-sub">Documents uploaded are unclear or invalid</div>
+        </button>
+        <button class="quick-email-btn" onclick="selectQuickEmail('missing_docs')">
+          <div class="qe-btn-title">📂 Missing Documents</div>
+          <div class="qe-btn-sub">Application is incomplete — request more docs</div>
+        </button>
+        <button class="quick-email-btn" onclick="selectQuickEmail('under_review')">
+          <div class="qe-btn-title">🔍 Application Under Review</div>
+          <div class="qe-btn-sub">Notify that review is in progress</div>
+        </button>
+        <button class="quick-email-btn" onclick="selectQuickEmail('resubmit')">
+          <div class="qe-btn-title">🔄 Please Resubmit</div>
+          <div class="qe-btn-sub">Ask applicant to resubmit with corrections</div>
+        </button>
+      </div>
+      <div id="qe-preview" style="display:none;margin-top:16px">
+        <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">Preview & Edit</div>
+        <input type="text" id="qe-subject" class="reject-reason-input" style="margin-bottom:8px" placeholder="Subject" />
+        <textarea id="qe-body" class="reject-reason-input" style="min-height:100px;margin-bottom:12px"></textarea>
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary-gold" onclick="sendQuickEmail()">Send →</button>
+          <button class="btn-ghost-dark" onclick="document.getElementById('qe-preview').style.display='none'">Back</button>
+        </div>
       </div>
     </div>
   </div>
@@ -431,6 +601,7 @@ function showPanel(id, btn){
   if(id==='venues')          loadAllVenues();
   if(id==='users')           loadAllUsers();
   if(id==='bookings')        loadAllBookings();
+  if(id==='plans')           loadPlansAdmin();
 }
 
 // ─── OVERVIEW ────────────────────────────────────────────
@@ -482,41 +653,80 @@ async function loadApprovals(){
     el.innerHTML = list.map(a=>`
       <div class="owner-pending-card">
         <div class="owner-pending-header">
-          <div>
-            <div class="owner-info-name">${esc(a.name)}</div>
+          <div style="flex:1;min-width:0">
+            <div class="owner-info-name">
+              ${esc(a.name)}
+              <span class="app-plan-badge app-plan-${a.plan||'basic'}">${a.plan||'basic'}</span>
+            </div>
             <div class="owner-info-email">${esc(a.email)} · ${esc(a.phone||'—')}</div>
-            <div style="font-size:0.75rem;color:#555;margin-top:4px">${new Date(a.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</div>
+            ${a.venueName ? `<div style="font-size:0.78rem;color:#c8a96e;margin-top:3px">🏛️ ${esc(a.venueName)}${a.venueAddress ? ' · ' + esc(a.venueAddress) : ''}</div>` : ''}
+            <div style="font-size:0.75rem;color:#555;margin-top:4px">
+              ${new Date(a.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}
+              · <span class="payment-status-badge ${a.listingEnabled?'psb-paid':a.planPaid?'psb-paid':'psb-unpaid'}">
+                  ${a.listingEnabled ? '✅ Activated' : a.planPaid ? '✅ Paid' : '⏳ Payment Pending'}
+                </span>
+            </div>
           </div>
           <span class="pill pill-${a.status||'pending'}">${a.status||'pending'}</span>
         </div>
+
         ${(a.proofFiles||[]).length ? `
         <div class="owner-proof-wrap">
           ${(a.proofFiles).map(f=>`<div class="proof-badge" onclick="openProofFile('${f.filename}','${esc(f.originalName||f.filename)}')">📎 ${esc(f.originalName||f.filename)}</div>`).join('')}
         </div>` : '<div style="font-size:0.78rem;color:#555;margin-top:8px">No proof documents uploaded</div>'}
+
         ${a.status==='rejected'&&a.rejectReason ? `<div style="margin-top:8px;font-size:0.78rem;color:#f87171;background:rgba(239,68,68,0.06);padding:8px 12px;border-radius:6px;border:1px solid rgba(239,68,68,0.2)">❌ Rejection reason: ${esc(a.rejectReason)}</div>` : ''}
-        ${(a.status==='pending'||a.status==='rejected') ? `
-        <div class="approval-actions" style="flex-wrap:wrap">
+
+        <div class="approval-actions" style="flex-wrap:wrap;margin-top:12px">
           <button class="btn-view" onclick="viewProofs('${a._id}','${esc(a.name)}',${JSON.stringify(a.proofFiles||[]).replace(/"/g,'&quot;')})">📎 View Docs</button>
-          <button class="btn-view" style="background:rgba(139,58,42,0.1);color:#c8a96e;border-color:rgba(200,169,110,0.25)" onclick="openMessageModal('${a._id}','${esc(a.name)}','${esc(a.email)}')">✉️ Message</button>
-          ${a.status==='pending' ? `<button class="btn-approve" onclick="approveOwner('${a._id}')">✅ Approve</button>
-          <button class="btn-reject"  onclick="promptReject('${a._id}')">✗ Reject</button>` : ''}
+          <button class="btn-view" style="background:rgba(139,58,42,0.1);color:#c8a96e;border-color:rgba(200,169,110,0.25)" onclick="openMessageModal('${a._id}','${esc(a.name)}','${esc(a.email)}')">✉️ Custom Email</button>
+          <button class="btn-view" style="background:rgba(74,94,79,0.1);color:#6db87a;border-color:rgba(74,94,79,0.3)" onclick="openQuickEmailModal('${a._id}','${esc(a.name)}','${esc(a.email)}')">⚡ Quick Email</button>
+
+          ${a.status==='pending' ? `
+            <button class="btn-approve" onclick="approveOwner('${a._id}')">✅ Approve</button>
+            <button class="btn-reject" onclick="promptReject('${a._id}')">✗ Reject</button>
+          ` : ''}
+
+          ${a.status==='approved' && !a.listingEnabled ? `
+            <button class="btn-approve" style="background:rgba(200,169,110,0.12);color:var(--gold);border-color:rgba(200,169,110,0.4)" onclick="sendPaymentLink('${a._id}')">💳 Send Payment Link</button>
+            <button class="btn-view" style="background:rgba(100,100,100,0.08);color:#888;border-color:#333;font-size:0.75rem" onclick="manualMarkPaid('${a._id}')">✔ Mark Paid Manually</button>
+          ` : ''}
+
+          ${a.listingEnabled ? `
+            <span style="font-size:0.8rem;color:#4ade80;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);padding:5px 12px;border-radius:6px">✅ Account Active · Can List Venues</span>
+          ` : ''}
+
+          ${a.status==='rejected' ? `
+            <button class="btn-approve" style="opacity:0.6;font-size:0.78rem" onclick="approveOwner('${a._id}')">↩ Re-approve</button>
+          ` : ''}
         </div>
+
         <div id="reject-reason-wrap-${a._id}" style="display:none;margin-top:8px">
           <input class="reject-reason-input" id="reject-reason-${a._id}" placeholder="Enter rejection reason (required)…" />
           <div style="display:flex;gap:8px;margin-top:8px">
             <button class="btn-reject" onclick="confirmReject('${a._id}')">Confirm Rejection</button>
             <button class="btn-ghost-dark" style="padding:5px 14px;font-size:0.78rem" onclick="cancelReject('${a._id}')">Cancel</button>
           </div>
-        </div>` : ''}
+        </div>
       </div>`).join('');
   } catch(e){ document.getElementById('approvals-list').innerHTML='<div class="empty-state">Failed to load</div>'; }
 }
 
 async function approveOwner(id){
-  if(!confirm('Approve this owner? They will immediately get access to list venues.')) return;
+  if(!confirm('Approve this application? The owner will be notified and you can then send them a payment link.')) return;
   try {
     await api('/admin/owner-applications/'+id+'/approve',{method:'PATCH'});
-    toast('Owner approved! ✅','success');
+    toast('Application approved! ✅ Now send them a payment link.','success');
+    loadApprovals(); loadOverview();
+  } catch(e){ toast(e.error||'Failed','error'); }
+}
+
+async function manualMarkPaid(id){
+  const ref = prompt('Enter payment reference (optional):','MANUAL_'+Date.now());
+  if (ref === null) return;
+  try {
+    await api('/admin/owner-applications/'+id+'/mark-paid',{method:'PATCH',body:{paymentRef:ref||'MANUAL_'+Date.now()}});
+    toast('Payment marked — owner account activated! ✅','success');
     loadApprovals(); loadOverview();
   } catch(e){ toast(e.error||'Failed','error'); }
 }
@@ -650,7 +860,10 @@ async function loadAllVenues(){
           <td>${esc(v.ownerName||'—')}</td>
           <td>${v.capacity}</td>
           <td>₹${(v.price1hr||0).toLocaleString('en-IN')}</td>
-          <td><button class="btn-delete" onclick="adminDeleteVenue('${v._id}','${esc(v.name)}')">🗑️ Delete</button></td>
+          <td style="display:flex;gap:6px">
+            <button class="btn-view" onclick="adminViewVenue('${v._id}')">👁 View</button>
+            <button class="btn-delete" onclick="adminDeleteVenue('${v._id}','${esc(v.name)}')">🗑️</button>
+          </td>
         </tr>`).join('')}
         </tbody></table>`
       : '<div class="empty-state"><div class="empty-icon">🏛️</div>No venues yet</div>';
@@ -734,6 +947,184 @@ async function sendAdminMsg() {
   } catch(e) { res.style.display='block'; res.style.background='rgba(239,68,68,0.1)'; res.style.color='#f87171'; res.style.border='1px solid rgba(239,68,68,0.3)'; res.textContent=e.error||'Failed to send'; }
 }
 
+
+// ─── MODAL HELPER ────────────────────────────────────────
+function closeModal(id) { document.getElementById(id)?.classList.remove('active'); }
+
+// ─── VENUE VIEW-ONLY ─────────────────────────────────────
+async function adminViewVenue(id) {
+  try {
+    const v = await api('/admin/venues');
+    const venue = v.find(x => x._id === id);
+    if (!venue) { toast('Venue not found','error'); return; }
+    
+    document.getElementById('vdm-title').textContent = '🏛️ ' + esc(venue.name);
+    const allImages = [venue.coverImage, ...(venue.images||[])].filter(Boolean);
+    const galleryHtml = allImages.length
+      ? `<div class="vdm-gallery">${allImages.map(fn=>`
+          <div style="position:relative">
+            <img src="${_host}/uploads/${fn}" onerror="this.style.display='none'" />
+            <button class="showcase-add-btn" onclick="addToShowcaseFromVenue('${fn}','${esc(venue.name)}')">+ Add to Showcase</button>
+          </div>`).join('')}</div>`
+      : `<div style="color:#555;font-size:0.85rem;margin-bottom:12px">No images uploaded</div>`;
+
+    const fmt = n => '₹' + (n||0).toLocaleString('en-IN');
+    document.getElementById('vdm-body').innerHTML = `
+      ${galleryHtml}
+      <div class="vdm-section">
+        <div class="vdm-section-title">📋 Basic Info</div>
+        <div class="vdm-row"><span class="vdm-label">Name</span><span class="vdm-value">${esc(venue.name)}</span></div>
+        <div class="vdm-row"><span class="vdm-label">Type</span><span class="vdm-value">${esc(venue.type)}</span></div>
+        <div class="vdm-row"><span class="vdm-label">Location</span><span class="vdm-value">${esc(venue.location)}</span></div>
+        <div class="vdm-row"><span class="vdm-label">Address</span><span class="vdm-value">${esc([venue.address,venue.city,venue.state,venue.pincode].filter(Boolean).join(', '))}</span></div>
+        <div class="vdm-row"><span class="vdm-label">Capacity</span><span class="vdm-value">${venue.capacity} guests</span></div>
+        <div class="vdm-row"><span class="vdm-label">Size</span><span class="vdm-value">${esc(venue.venueSize||'—')}</span></div>
+        <div class="vdm-row"><span class="vdm-label">Owner</span><span class="vdm-value">${esc(venue.ownerName||'—')}</span></div>
+        <div class="vdm-row"><span class="vdm-label">Venue Email</span><span class="vdm-value">${esc(venue.venueEmail||'—')}</span></div>
+        <div class="vdm-row"><span class="vdm-label">Venue Phone</span><span class="vdm-value">${esc(venue.venuePhone||'—')}</span></div>
+        <div class="vdm-row"><span class="vdm-label">Operating Hours</span><span class="vdm-value">${esc(venue.openTime||'09:00')} – ${esc(venue.closeTime||'22:00')}</span></div>
+        <div class="vdm-row"><span class="vdm-label">Rating</span><span class="vdm-value">★ ${venue.rating||'No ratings'} (${venue.reviewCount||0} reviews)</span></div>
+        <div class="vdm-row"><span class="vdm-label">Status</span><span class="vdm-value">${venue.isActive?'✅ Active':'🔴 Inactive'} ${venue.blocked?'| 🔒 Blocked':''}</span></div>
+      </div>
+      <div class="vdm-section">
+        <div class="vdm-section-title">💰 Pricing</div>
+        ${[1,2,3,4,5,6,7].map(h => venue['price'+h+'hr'] ? `<div class="vdm-row"><span class="vdm-label">${h} Hour${h>1?'s':''}</span><span class="vdm-value">${fmt(venue['price'+h+'hr'])}</span></div>` : '').join('')}
+        ${venue.platePrice > 0 ? `<div class="vdm-row"><span class="vdm-label">Plate Charges</span><span class="vdm-value">₹${venue.platePrice}/plate</span></div>` : ''}
+      </div>
+      ${(venue.amenities||[]).length ? `
+      <div class="vdm-section">
+        <div class="vdm-section-title">✨ Amenities</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${venue.amenities.map(a=>`<span style="background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:4px 10px;font-size:0.78rem;color:#ccc">${esc(a.label)}${a.price>0?' (₹'+a.price+'/hr)':''}</span>`).join('')}
+        </div>
+      </div>` : ''}
+      ${venue.description ? `
+      <div class="vdm-section">
+        <div class="vdm-section-title">📝 Description</div>
+        <div style="font-size:0.84rem;color:#aaa;line-height:1.7">${esc(venue.description)}</div>
+      </div>` : ''}
+      <div style="padding:14px;background:rgba(139,58,42,0.05);border:1px solid rgba(139,58,42,0.2);border-radius:8px;font-size:0.8rem;color:#888;text-align:center">
+        🔒 View only — editing is done by the venue owner
+      </div>`;
+    document.getElementById('venue-detail-modal').classList.add('active');
+  } catch(e) { toast('Failed to load venue: ' + (e.error||''), 'error'); }
+}
+
+async function addToShowcaseFromVenue(filename, venueName) {
+  const title   = prompt('Enter a title for this showcase photo:', venueName);
+  if (!title) return;
+  const caption = prompt('Enter a caption (optional):', '') || '';
+  try {
+    // We need to send the filename directly — add a new endpoint or repurpose
+    // For now, open the homepage photos panel and pre-fill
+    toast('Go to Homepage Photos panel and upload this image manually, or use the URL below:', 'info');
+    const url = _host + '/uploads/' + filename;
+    prompt('Image URL (copy this):', url);
+  } catch(e) { toast('Error: ' + (e.error||''), 'error'); }
+}
+
+// ─── QUICK EMAILS ─────────────────────────────────────────
+let qeAppId = null, qeAppName = '', qeAppEmail = '';
+const quickEmailTemplates = {
+  invalid_proof: {
+    subject: 'Action Required: Invalid Proof Documents on Your EVNTLY Application',
+    body: `Hi {name},\n\nWe reviewed your EVNTLY venue owner application and noticed that the proof documents you uploaded are unclear, invalid, or do not meet our verification requirements.\n\nPlease resubmit your application with valid documents such as:\n• Clear copy of venue ownership/lease agreement\n• Recent utility bill showing the venue address\n• Government-issued business registration\n\nFor assistance, reply to this email.\n\nRegards,\nEVNTLY Team`
+  },
+  missing_docs: {
+    subject: 'Incomplete Application: Missing Documents — EVNTLY Owner Registration',
+    body: `Hi {name},\n\nThank you for applying to become a venue owner on EVNTLY. Your application is currently incomplete as some required documents are missing.\n\nPlease log back in and upload the following:\n• Valid venue proof (ownership deed / lease agreement)\n• Identity proof\n• Any other relevant business documents\n\nWe can only proceed with your application once all documents are received.\n\nRegards,\nEVNTLY Team`
+  },
+  under_review: {
+    subject: 'Your EVNTLY Application is Under Review',
+    body: `Hi {name},\n\nThank you for submitting your venue owner application on EVNTLY.\n\nWe wanted to let you know that your application is currently under review by our team. This process typically takes 1–2 business days.\n\nWe will notify you as soon as a decision has been made. In the meantime, feel free to reach out if you have any questions.\n\nRegards,\nEVNTLY Team`
+  },
+  resubmit: {
+    subject: 'Please Resubmit Your EVNTLY Venue Owner Application',
+    body: `Hi {name},\n\nWe appreciate your interest in listing your venue on EVNTLY. After reviewing your application, we require some corrections before we can proceed.\n\nPlease resubmit your application with the following corrections:\n• [Add specific corrections here]\n\nYou can reapply directly from our website. We look forward to welcoming you as a venue owner.\n\nRegards,\nEVNTLY Team`
+  }
+};
+
+function openQuickEmailModal(id, name, email) {
+  qeAppId = id; qeAppName = name; qeAppEmail = email;
+  document.getElementById('qe-to-label').textContent = email;
+  document.getElementById('qe-preview').style.display = 'none';
+  document.getElementById('quick-email-modal').classList.add('active');
+}
+function selectQuickEmail(type) {
+  const tmpl = quickEmailTemplates[type];
+  if (!tmpl) return;
+  document.getElementById('qe-subject').value = tmpl.subject;
+  document.getElementById('qe-body').value = tmpl.body.replace(/{name}/g, qeAppName);
+  document.getElementById('qe-preview').style.display = 'block';
+}
+async function sendQuickEmail() {
+  const subject = document.getElementById('qe-subject').value.trim();
+  const message = document.getElementById('qe-body').value.trim();
+  if (!message) { toast('Message cannot be empty','error'); return; }
+  try {
+    await api('/admin/owner-applications/' + qeAppId + '/message', { method:'POST', body:{ subject, message }});
+    toast('Email sent successfully! ✅','success');
+    closeModal('quick-email-modal');
+  } catch(e) { toast(e.error||'Failed to send','error'); }
+}
+
+// ─── SEND PAYMENT LINK ───────────────────────────────────
+async function sendPaymentLink(appId) {
+  try {
+    // Fetch both application and live plans from DB simultaneously
+    const [application, plans] = await Promise.all([
+      api('/admin/owner-applications/' + appId),
+      api('/admin/plans').catch(() => []),
+    ]);
+    const planKey  = application.plan || 'basic';
+    const planDoc  = plans.find(p => p.key === planKey) || { name: planKey.charAt(0).toUpperCase()+planKey.slice(1), price: 4999, maxVenues: 1 };
+    const planName = planDoc.name;
+    const planPrice= planDoc.price;
+    const maxVLabel= planDoc.maxVenues === -1 ? 'Unlimited venues' : planDoc.maxVenues + ' venue listing(s)';
+
+    document.getElementById('plan-modal-body').innerHTML = `
+      <div style="margin-bottom:16px">
+        <div style="font-size:0.8rem;color:#888;margin-bottom:4px">Sending payment link to:</div>
+        <div style="font-weight:700;color:#fff">${esc(application.name)}</div>
+        <div style="font-size:0.82rem;color:var(--muted)">${esc(application.email)}</div>
+      </div>
+      <div style="background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:16px;margin-bottom:16px">
+        <div style="font-size:0.75rem;color:var(--gold);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Selected Plan</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:1rem;font-weight:700;color:#fff">${esc(planName)} Plan</span>
+          <span style="font-size:1.3rem;font-weight:700;color:var(--gold)">₹${Number(planPrice).toLocaleString('en-IN')}</span>
+        </div>
+        <div style="font-size:0.78rem;color:#888">Access: <strong style="color:#ccc">${maxVLabel}</strong></div>
+      </div>
+      <div id="pl-result" style="display:none;padding:10px 14px;border-radius:8px;font-size:0.83rem;margin-bottom:12px"></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-primary-gold" onclick="confirmSendPaymentLink('${appId}')">💳 Send Payment Link →</button>
+        <button class="btn-ghost-dark" onclick="closeModal('plan-modal')">Cancel</button>
+      </div>`;
+    document.getElementById('plan-modal').classList.add('active');
+  } catch(e) { toast('Failed to load application: ' + (e.error||''), 'error'); }
+}
+
+async function confirmSendPaymentLink(appId) {
+  const res = document.getElementById('pl-result');
+  try {
+    const data = await api('/admin/owner-applications/' + appId + '/send-payment-link', { method:'POST' });
+    res.style.display = 'block';
+    res.style.background = 'rgba(34,197,94,0.08)';
+    res.style.color = '#22c55e';
+    res.style.border = '1px solid rgba(34,197,94,0.25)';
+    res.innerHTML = '✅ Payment link sent successfully!<br><small style="opacity:0.7">The owner will receive an email with the payment link.</small>';
+    toast('Payment link sent! ✅','success');
+    setTimeout(() => { closeModal('plan-modal'); loadApprovals(); }, 2000);
+  } catch(e) {
+    res.style.display = 'block';
+    res.style.background = 'rgba(239,68,68,0.1)';
+    res.style.color = '#f87171';
+    res.style.border = '1px solid rgba(239,68,68,0.3)';
+    res.textContent = e.error || 'Failed to send payment link';
+  }
+}
+
 // ─── AUTO-LOGIN FROM SESSION ──────────────────────────────
 (function(){
   const t = sessionStorage.getItem('evntly_admin_token');
@@ -742,6 +1133,120 @@ async function sendAdminMsg() {
     const user = JSON.parse(u);
     if(user.role === 'superadmin'){ adminToken = t; showAdminShell(); }
   }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PLATFORM PLANS MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadPlansAdmin() {
+  const el = document.getElementById('plans-list');
+  el.innerHTML = '<div style="padding:30px;text-align:center;color:#555">Loading…</div>';
+  try {
+    const plans = await api('/admin/plans');
+    if (!plans.length) {
+      el.innerHTML = '<div style="padding:30px;text-align:center;color:#555">No plans yet. Add one above.</div>';
+      return;
+    }
+    el.innerHTML = plans.map(p => `
+      <div class="plan-card-admin ${p.isActive?'':'inactive'}" id="pca-${p._id}">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-weight:700;color:#fff;font-size:1rem">${esc(p.name)}</span>
+            ${p.isPopular ? '<span class="pca-badge pca-popular">⭐ Popular</span>' : ''}
+            ${!p.isActive ? '<span class="pca-badge" style="background:rgba(100,100,100,0.2);color:#666;border-color:#333">Inactive</span>' : ''}
+          </div>
+          <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+            <span style="font-size:1.2rem;font-weight:800;color:var(--gold)">₹${p.price.toLocaleString('en-IN')}</span>
+            <span style="font-size:0.78rem;color:#888">Key: <code style="color:#c8a96e">${esc(p.key)}</code></span>
+            <span style="font-size:0.78rem;color:#888">Max venues: <strong style="color:#ccc">${p.maxVenues===-1?'Unlimited':p.maxVenues}</strong></span>
+            <span style="font-size:0.78rem;color:#888">Order: <strong style="color:#ccc">${p.sortOrder}</strong></span>
+          </div>
+          ${p.features?.length ? `<div style="font-size:0.75rem;color:#666">${p.features.map(f=>'• '+esc(f)).join('  ')}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <button class="btn-view" onclick="editPlan(${JSON.stringify(p).replace(/"/g,'&quot;')})">✏️ Edit</button>
+          <button class="btn-reject" onclick="deletePlan('${p._id}','${esc(p.name)}')">🗑️ Delete</button>
+        </div>
+      </div>`).join('');
+  } catch(e) { el.innerHTML = `<div style="color:#f87171;padding:20px">Error: ${e.error||'Failed to load plans'}</div>`; }
+}
+
+function resetPlanForm() {
+  document.getElementById('edit-plan-id').value = '';
+  document.getElementById('pf-name').value    = '';
+  document.getElementById('pf-key').value     = '';
+  document.getElementById('pf-price').value   = '';
+  document.getElementById('pf-max').value     = '1';
+  document.getElementById('pf-order').value   = '0';
+  document.getElementById('pf-popular').checked = false;
+  document.getElementById('pf-active').checked  = true;
+  document.getElementById('pf-features').value  = '';
+  document.getElementById('plan-form-title').textContent = 'Add New Plan';
+  document.getElementById('plan-form-msg').style.display = 'none';
+  document.getElementById('pf-key').readOnly = false;
+}
+
+function editPlan(p) {
+  document.getElementById('edit-plan-id').value   = p._id;
+  document.getElementById('pf-name').value        = p.name;
+  document.getElementById('pf-key').value         = p.key;
+  document.getElementById('pf-price').value       = p.price;
+  document.getElementById('pf-max').value         = p.maxVenues;
+  document.getElementById('pf-order').value       = p.sortOrder || 0;
+  document.getElementById('pf-popular').checked   = !!p.isPopular;
+  document.getElementById('pf-active').checked    = p.isActive !== false;
+  document.getElementById('pf-features').value    = (p.features||[]).join('\n');
+  document.getElementById('plan-form-title').textContent = `Edit Plan — ${p.name}`;
+  document.getElementById('pf-key').readOnly = true; // key cannot be changed after creation
+  document.getElementById('plan-form-msg').style.display = 'none';
+  // Scroll to form
+  document.getElementById('plan-form-title').scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+async function savePlan() {
+  const msg  = document.getElementById('plan-form-msg');
+  const editId = document.getElementById('edit-plan-id').value;
+  const body = {
+    name:      document.getElementById('pf-name').value.trim(),
+    key:       document.getElementById('pf-key').value.trim().toLowerCase().replace(/\s+/g,'_'),
+    price:     parseFloat(document.getElementById('pf-price').value) || 0,
+    maxVenues: parseInt(document.getElementById('pf-max').value) || 1,
+    sortOrder: parseInt(document.getElementById('pf-order').value) || 0,
+    isPopular: document.getElementById('pf-popular').checked,
+    isActive:  document.getElementById('pf-active').checked,
+    features:  document.getElementById('pf-features').value.split('\n').map(f=>f.trim()).filter(Boolean),
+  };
+  if (!body.name) { showFormMsg(msg,'Name is required','error'); return; }
+  if (!editId && !body.key) { showFormMsg(msg,'Key is required','error'); return; }
+  try {
+    if (editId) {
+      await api('/admin/plans/'+editId, { method:'PUT', body });
+      showFormMsg(msg,'✅ Plan updated!','success');
+    } else {
+      await api('/admin/plans', { method:'POST', body });
+      showFormMsg(msg,'✅ Plan created!','success');
+      resetPlanForm();
+    }
+    await loadPlansAdmin();
+  } catch(e) { showFormMsg(msg,'❌ '+(e.error||'Failed to save plan'),'error'); }
+}
+
+async function deletePlan(id, name) {
+  if (!confirm(`Delete plan "${name}"? This cannot be undone.`)) return;
+  try {
+    await api('/admin/plans/'+id, { method:'DELETE' });
+    toast('Plan deleted','success');
+    await loadPlansAdmin();
+  } catch(e) { toast('Error: '+(e.error||'Delete failed'),'error'); }
+}
+
+function showFormMsg(el, text, type) {
+  el.style.display = 'block';
+  el.style.background = type==='success' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
+  el.style.color      = type==='success' ? '#4ade80' : '#f87171';
+  el.style.border     = `1px solid ${type==='success'?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)'}`;
+  el.textContent = text;
+}
+
 })();
 </script>
 </body>

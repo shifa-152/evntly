@@ -481,6 +481,65 @@ function owClearErrors() {
   ['ow-name','ow-email','ow-password','ow-phone','ow-proof'].forEach(id => owFieldError(id, ''));
 }
 
+
+// ─── OWNER PLAN SELECTION ────────────────────────────────
+function selectOwnerPlan(card, planKey) {
+  document.querySelectorAll('.ow-plan-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  document.getElementById('ow-plan').value = planKey;
+}
+
+// Load plans dynamically from API, render cards
+async function loadOwnerPlans() {
+  const container = document.getElementById('ow-plan-cards');
+  if (!container) return;
+
+  // Static fallback plans shown immediately
+  const fallback = [
+    { key:'basic',    name:'Basic',    price:4999,  maxVenues:1,  features:['1 venue listing','Standard support','Basic analytics'],          isPopular:false },
+    { key:'standard', name:'Standard', price:9999,  maxVenues:3,  features:['3 venue listings','Priority support','Advanced analytics'],       isPopular:true  },
+    { key:'premium',  name:'Premium',  price:19999, maxVenues:-1, features:['Unlimited venues','Dedicated support','Featured listings'],        isPopular:false },
+  ];
+
+  function renderPlans(plans) {
+    const firstKey = plans[0]?.key || 'basic';
+    // Respect already-selected plan if user switched before API returned
+    const currentSel = document.getElementById('ow-plan').value || firstKey;
+    const selKey = plans.find(p => p.key === currentSel) ? currentSel : firstKey;
+    document.getElementById('ow-plan').value = selKey;
+
+    container.innerHTML = plans.map(p => {
+      const maxLabel = p.maxVenues === -1 ? 'Unlimited venues' : p.maxVenues + ' venue listing' + (p.maxVenues > 1 ? 's' : '');
+      const feats = (p.features || [maxLabel]).join('<br>');
+      return `
+        <div class="ow-plan-card ${p.key===selKey?'selected':''}" onclick="selectOwnerPlan(this,'${p.key}')">
+          ${p.isPopular ? '<div class="ow-plan-badge">Popular</div>' : ''}
+          <div class="ow-plan-name">${p.name}</div>
+          <div class="ow-plan-price">₹${Number(p.price).toLocaleString('en-IN')}</div>
+          <div class="ow-plan-feat">${feats}</div>
+        </div>`;
+    }).join('');
+  }
+
+  // Show fallback first
+  renderPlans(fallback);
+
+  // Then try to load from API and re-render with live data
+  try {
+    const host = (location.hostname==='localhost'||location.hostname==='127.0.0.1')
+      ? 'http://localhost:5000' : `${location.protocol}//${location.hostname}:5000`;
+    const res  = await fetch(host + '/api/plans');
+    if (res.ok) {
+      const plans = await res.json();
+      if (Array.isArray(plans) && plans.length) renderPlans(plans);
+    }
+  } catch(e) {
+    // Keep fallback — no visible error to user
+    console.warn('Could not load plans from API, using defaults');
+  }
+}
+
+
 let owProofFiles = [];
 function previewOwnerProofs(e) {
   Array.from(e.target.files).forEach(file => {
@@ -495,10 +554,12 @@ function previewOwnerProofs(e) {
 
 async function registerOwner() {
   owClearErrors();
-  const name     = document.getElementById('ow-name').value.trim();
-  const email    = document.getElementById('ow-email').value.trim();
-  const password = document.getElementById('ow-password').value;
-  const phone    = document.getElementById('ow-phone').value.trim();
+  const name         = document.getElementById('ow-name').value.trim();
+  const email        = document.getElementById('ow-email').value.trim();
+  const password     = document.getElementById('ow-password').value;
+  const phone        = document.getElementById('ow-phone').value.trim();
+  const venueName    = document.getElementById('ow-venue-name')?.value.trim()    || '';
+  const venueAddress = document.getElementById('ow-venue-address')?.value.trim() || '';
   let hasError = false;
   if (!name) {
     owFieldError('ow-name', 'Full name is required'); hasError = true;
@@ -518,6 +579,12 @@ async function registerOwner() {
   }
   const owPhoneErr = phoneError(phone);
   if (owPhoneErr) { owFieldError('ow-phone', owPhoneErr); hasError = true; }
+  if (!venueName) {
+    owFieldError('ow-venue-name', 'Venue name is required'); hasError = true;
+  }
+  if (!venueAddress) {
+    owFieldError('ow-venue-address', 'Venue address is required'); hasError = true;
+  }
   if (!owProofFiles.length) {
     owFieldError('ow-proof', 'Please upload at least one proof document'); hasError = true;
   }
@@ -528,10 +595,14 @@ async function registerOwner() {
 
   try {
     const fd = new FormData();
-    fd.append('name',     name);
-    fd.append('email',    email);
-    fd.append('password', password);
-    fd.append('phone',    phone);
+    const plan = document.getElementById('ow-plan')?.value || 'basic';
+    fd.append('name',         name);
+    fd.append('email',        email);
+    fd.append('password',     password);
+    fd.append('phone',        phone);
+    fd.append('plan',         plan);
+    fd.append('venueName',    venueName);
+    fd.append('venueAddress', venueAddress);
     owProofFiles.forEach(f => fd.append('proofFiles', f));
     await api('/owner/apply', { method:'POST', formData: fd });
     owClearErrors();
@@ -2009,7 +2080,11 @@ async function submitAddVenue() {
     loadOwnerVenues();
     loadVenues();
   } catch(e) {
-    showErrors('av-errors','av-errors-list', e.errors || [e.error || 'Failed to add venue']);
+    if (e.error === 'PLAN_NOT_PAID') {
+      showErrors('av-errors','av-errors-list', ['⚠️ Your account is not yet activated. Please complete your platform fee payment to list venues. Check your email for the payment link from EVNTLY.']);
+    } else {
+      showErrors('av-errors','av-errors-list', e.errors || [e.error || 'Failed to add venue']);
+    }
   } finally { btn.disabled = false; btn.textContent = 'List This Venue →'; }
 }
 
@@ -2330,5 +2405,6 @@ function goToSlide(i) {
   await loadVenues();
   loadReviews();
   loadShowcase();
+  loadOwnerPlans();   // load plan cards from API (with static fallback)
   if (currentUser) showDashboard();
 })();

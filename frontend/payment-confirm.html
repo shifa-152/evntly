@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Complete Payment — EVNTLY</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#111;color:#fff;font-family:'Helvetica Neue',Arial,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:16px;max-width:480px;width:100%;overflow:hidden}
+  .card-header{background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #2a2a2a}
+  .brand{font-family:Georgia,serif;font-size:1.8rem;font-weight:900;color:#c8a96e;letter-spacing:1px}
+  .brand span{color:#fff}
+  .card-body{padding:32px}
+  .step{display:none}.step.active{display:block}
+  h2{font-size:1.15rem;color:#fff;margin-bottom:8px}
+  .sub{font-size:0.85rem;color:#888;line-height:1.6;margin-bottom:24px}
+  .plan-box{background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:18px;margin-bottom:20px}
+  .plan-label{font-size:0.68rem;color:#c8a96e;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px}
+  .plan-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .plan-name{font-size:1rem;font-weight:700;color:#fff}
+  .plan-price{font-size:1.4rem;font-weight:800;color:#c8a96e}
+  .plan-detail{font-size:0.78rem;color:#666}
+  .input-group{margin-bottom:14px}
+  label{display:block;font-size:0.72rem;color:#888;margin-bottom:5px}
+  input,select{width:100%;background:#111;border:1px solid #333;border-radius:8px;padding:10px 13px;color:#fff;font-size:0.88rem;outline:none;transition:border-color .2s}
+  input:focus,select:focus{border-color:#c8a96e}
+  .btn{display:block;width:100%;padding:13px;border-radius:10px;border:none;font-size:0.95rem;font-weight:700;cursor:pointer;transition:opacity .2s;margin-top:4px}
+  .btn-gold{background:#c8a96e;color:#1a1a1a}.btn-gold:hover{opacity:.88}
+  .btn-ghost{background:transparent;color:#888;border:1px solid #333;margin-top:10px}.btn-ghost:hover{border-color:#555;color:#fff}
+  .msg{padding:12px 16px;border-radius:8px;font-size:0.84rem;margin-bottom:16px;display:none}
+  .msg.success{background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);color:#4ade80}
+  .msg.error{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:#f87171}
+  .success-icon{font-size:3rem;text-align:center;margin-bottom:16px}
+  .note{font-size:0.72rem;color:#555;text-align:center;margin-top:14px;line-height:1.6}
+  .sim-note{background:rgba(200,169,110,0.06);border:1px solid rgba(200,169,110,0.15);border-radius:8px;padding:12px;font-size:0.78rem;color:#888;margin-bottom:16px;line-height:1.6}
+  .sim-note strong{color:#c8a96e}
+  a{color:#c8a96e;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="card-header">
+    <div class="brand">EVNTLY<span>.</span></div>
+    <div style="font-size:0.78rem;color:#555;margin-top:4px">Venue Owner Activation</div>
+  </div>
+  <div class="card-body">
+
+    <!-- STEP 1: Payment form -->
+    <div class="step active" id="step-pay">
+      <h2>Complete Your Platform Fee</h2>
+      <p class="sub">You're one step away from listing your venues. Complete the payment below to activate your account.</p>
+
+      <div class="plan-box" id="plan-summary">
+        <div class="plan-label">Your Selected Plan</div>
+        <div class="plan-row">
+          <span class="plan-name" id="disp-plan">—</span>
+          <span class="plan-price" id="disp-price">—</span>
+        </div>
+        <div class="plan-detail" id="disp-email"></div>
+      </div>
+
+      <div class="sim-note">
+        <strong>🔔 Demo / Staging Mode</strong><br>
+        This is a simulated payment page. In production, integrate Razorpay or Stripe here. For now, enter any UPI/transaction reference to confirm payment.
+      </div>
+
+      <div class="msg" id="pay-msg"></div>
+
+      <div class="input-group">
+        <label>Payment Method</label>
+        <select id="pay-method">
+          <option value="upi">UPI</option>
+          <option value="card">Credit / Debit Card</option>
+          <option value="netbanking">Net Banking</option>
+          <option value="wallet">Wallet</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Transaction / UPI Reference ID *</label>
+        <input id="pay-ref" type="text" placeholder="e.g. UPI123456789012" />
+      </div>
+
+      <button class="btn btn-gold" onclick="confirmPayment()">✅ Confirm Payment →</button>
+      <button class="btn btn-ghost" onclick="window.location.href='/'">← Back to EVNTLY</button>
+      <p class="note">Your login credentials will be emailed to you automatically after payment confirmation.</p>
+    </div>
+
+    <!-- STEP 2: Success -->
+    <div class="step" id="step-done">
+      <div class="success-icon">🎉</div>
+      <h2 style="text-align:center">Payment Confirmed!</h2>
+      <p class="sub" style="text-align:center">Your EVNTLY venue owner account is now fully activated. Check your email for login credentials.</p>
+      <div class="plan-box" style="text-align:center">
+        <div style="font-size:0.78rem;color:#888;margin-bottom:4px">Payment Reference</div>
+        <div id="done-ref" style="font-family:monospace;color:#c8a96e;font-weight:700;font-size:0.9rem">—</div>
+      </div>
+      <button class="btn btn-gold" onclick="window.location.href='/'">Go to EVNTLY & Sign In →</button>
+      <p class="note">Didn't receive the email? Check your spam folder or contact support.</p>
+    </div>
+
+    <!-- STEP 3: Already paid -->
+    <div class="step" id="step-already">
+      <div class="success-icon">✅</div>
+      <h2 style="text-align:center">Payment Already Confirmed</h2>
+      <p class="sub" style="text-align:center">Your account is already active. Sign in to your owner dashboard to start listing venues.</p>
+      <button class="btn btn-gold" onclick="window.location.href='/'">Sign In to EVNTLY →</button>
+    </div>
+
+    <!-- STEP 4: Error -->
+    <div class="step" id="step-error">
+      <div class="success-icon">❌</div>
+      <h2 style="text-align:center">Invalid Payment Link</h2>
+      <p class="sub" style="text-align:center">This payment link is invalid or has expired. Please contact the EVNTLY admin team for a new link.</p>
+      <button class="btn btn-ghost" onclick="window.location.href='/'">← Back to EVNTLY</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const params  = new URLSearchParams(location.search);
+const appId   = params.get('appId');
+const planName= params.get('plan')  || 'Basic';
+const amount  = params.get('amount') || '4999';
+const email   = params.get('email') || '';
+
+// Validate link has required params
+if (!appId) {
+  showStep('error');
+} else {
+  document.getElementById('disp-plan').textContent  = planName + ' Plan';
+  document.getElementById('disp-price').textContent = '₹' + Number(amount).toLocaleString('en-IN');
+  document.getElementById('disp-email').textContent = email ? 'Account: ' + email : '';
+}
+
+function showStep(id) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + id).classList.add('active');
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('pay-msg');
+  el.className = 'msg ' + type;
+  el.textContent = text;
+  el.style.display = 'block';
+}
+
+async function confirmPayment() {
+  const ref = document.getElementById('pay-ref').value.trim();
+  if (!ref) { showMsg('Please enter a transaction reference ID.', 'error'); return; }
+
+  const btn = document.querySelector('#step-pay .btn-gold');
+  btn.textContent = 'Processing…';
+  btn.disabled = true;
+
+  try {
+    const host = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+      ? 'http://localhost:5000' : `${location.protocol}//${location.hostname}:5000`;
+
+    const res = await fetch(`${host}/api/owner-applications/${appId}/confirm-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentRef: ref }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) throw data;
+
+    if (data.already) {
+      showStep('already');
+    } else {
+      document.getElementById('done-ref').textContent = ref;
+      showStep('done');
+    }
+  } catch(e) {
+    showMsg(e.error || 'Payment confirmation failed. Please try again or contact support.', 'error');
+    btn.textContent = '✅ Confirm Payment →';
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
