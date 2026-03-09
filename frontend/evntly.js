@@ -558,8 +558,7 @@ async function registerOwner() {
   const email        = document.getElementById('ow-email').value.trim();
   const password     = document.getElementById('ow-password').value;
   const phone        = document.getElementById('ow-phone').value.trim();
-  const venueName    = document.getElementById('ow-venue-name')?.value.trim()    || '';
-  const venueAddress = document.getElementById('ow-venue-address')?.value.trim() || '';
+
   let hasError = false;
   if (!name) {
     owFieldError('ow-name', 'Full name is required'); hasError = true;
@@ -579,16 +578,16 @@ async function registerOwner() {
   }
   const owPhoneErr = phoneError(phone);
   if (owPhoneErr) { owFieldError('ow-phone', owPhoneErr); hasError = true; }
-  if (!venueName) {
-    owFieldError('ow-venue-name', 'Venue name is required'); hasError = true;
-  }
-  if (!venueAddress) {
-    owFieldError('ow-venue-address', 'Venue address is required'); hasError = true;
-  }
+
   if (!owProofFiles.length) {
     owFieldError('ow-proof', 'Please upload at least one proof document'); hasError = true;
   }
-  if (hasError) return;
+  if (hasError) {
+    const firstErr = document.querySelector('.ow-field-err[style*="block"]');
+    if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    toast('Please fill in all required fields highlighted above ↑', 'error');
+    return;
+  }
 
   const btn = document.getElementById('ow-submit-btn');
   btn.disabled = true; btn.textContent = 'Submitting…';
@@ -601,8 +600,7 @@ async function registerOwner() {
     fd.append('password',     password);
     fd.append('phone',        phone);
     fd.append('plan',         plan);
-    fd.append('venueName',    venueName);
-    fd.append('venueAddress', venueAddress);
+
     owProofFiles.forEach(f => fd.append('proofFiles', f));
     await api('/owner/apply', { method:'POST', formData: fd });
     owClearErrors();

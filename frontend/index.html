@@ -13,8 +13,8 @@
 .slot-toggle-btn.slot-on{background:#22c55e;color:#fff}
 .slot-toggle-btn.slot-off{background:#ef4444;color:#fff}
 .slot-toggle-btn:disabled{opacity:.6;cursor:not-allowed}
-.ow-field-err{display:none;color:#ef4444;font-size:0.78rem;margin-top:4px;font-weight:500}
-.ow-invalid{border-color:#ef4444!important;outline-color:#ef4444!important}
+.ow-field-err{display:none;color:#ef4444;font-size:0.78rem;margin-top:5px;font-weight:600}
+.ow-invalid{border-color:#ef4444!important;outline-color:#ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,0.2)!important}
 .vd-avail-section{padding:20px 24px;background:var(--cream,#f9f5ee);border-top:1px solid var(--border,#e5e5e5)}
 .vd-avail-section .vd-section-title{font-size:0.95rem;font-weight:700;color:var(--dark,#1a1a1a);margin-bottom:14px;letter-spacing:0.3px}
 
@@ -190,6 +190,7 @@
         <input class="dark-field" type="tel" id="ow-phone" placeholder="+91 98765 43210" oninput="owFieldError('ow-phone','')" />
         <span class="ow-field-err" id="ow-phone-err"></span>
       </div>
+
       <div class="df-group">
         <label class="dark-label">Venue Proof Documents * <span style="font-size:0.72rem;font-weight:400;opacity:0.65">(Venue Agreement / Light Bill / Water Bill / Photos)</span></label>
         <!-- Platform Plan Selection — loaded dynamically from /api/plans -->

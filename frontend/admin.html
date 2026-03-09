@@ -1134,6 +1134,9 @@ async function confirmSendPaymentLink(appId) {
     if(user.role === 'superadmin'){ adminToken = t; showAdminShell(); }
   }
 
+
+})();
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  PLATFORM PLANS MANAGEMENT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1247,7 +1250,6 @@ function showFormMsg(el, text, type) {
   el.textContent = text;
 }
 
-})();
 </script>
 </body>
 </html>
