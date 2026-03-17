@@ -174,6 +174,10 @@ const userSchema = new mongoose.Schema({
   password:  { type: String, required: true },
   role:      { type: String, enum: ['customer','owner','admin','superadmin'], default: 'customer' },
   phone:              { type: String, default: '' },
+  plan:               { type: String,  default: 'basic' },
+  planPaymentStatus:  { type: String,  default: 'unpaid' },
+  planPaidAt:         { type: Date },
+  planExpiresAt:      { type: Date },
   resetPasswordToken: { type: String, default: '' },
   resetPasswordExp:   { type: Date },
 }, { timestamps: true });
@@ -241,6 +245,18 @@ const homepagePhotoSchema = new mongoose.Schema({
   order:   { type: Number, default: 0 },
   active:  { type: Boolean, default: true },
 }, { timestamps: true });
+
+const planChangeRequestSchema = new mongoose.Schema({
+  userId:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  ownerName:     { type: String, required: true },
+  ownerEmail:    { type: String, required: true },
+  currentPlan:   { type: String, default: 'basic' },
+  requestedPlan: { type: String, required: true },
+  status:        { type: String, enum: ['pending','payment_sent','completed'], default: 'pending' },
+  paymentSentAt: { type: Date },
+  paymentLink:   { type: String, default: '' },
+}, { timestamps: true });
+const PlanChangeRequest = mongoose.model('PlanChangeRequest', planChangeRequestSchema);
 
 const Venue   = mongoose.model('Venue',   venueSchema);
 const User    = mongoose.model('User',    userSchema);
@@ -647,8 +663,16 @@ app.get('/api/owner/stats', ownerMiddleware, async (req, res) => {
     const venues   = await Venue.find({ ownerId: req.user.id });
     const venueIds = venues.map(v => v._id);
     const bookings = await Booking.find({ venueId: { $in: venueIds } }).sort({ createdAt: -1 });
-    const revenue  = bookings.filter(b => b.status === 'confirmed').reduce((s, b) => s + b.total, 0);
-    res.json({ venues, totalBookings: bookings.length, revenue, bookings });
+    const revenue   = bookings.filter(b => b.status === 'confirmed').reduce((s, b) => s + b.total, 0);
+    const ownerUser = await User.findById(req.user.id).select('plan planPaymentStatus planPaidAt planExpiresAt listingEnabled email');
+    const ownerApp  = ownerUser ? await OwnerApplication.findOne({ email: ownerUser.email }).select('plan planPaid listingEnabled').catch(()=>null) : null;
+    const planKey           = (ownerUser&&ownerUser.plan)||(ownerApp&&ownerApp.plan)||'basic';
+    const planPaymentStatus = (ownerUser&&ownerUser.planPaymentStatus)||((ownerApp&&ownerApp.planPaid)?'paid':'unpaid');
+    res.json({ venues, totalBookings: bookings.length, revenue, bookings,
+      plan: planKey, planPaymentStatus,
+      planPaidAt:    (ownerUser&&ownerUser.planPaidAt)||null,
+      planExpiresAt: (ownerUser&&ownerUser.planExpiresAt)||null,
+      listingEnabled:(ownerUser&&ownerUser.listingEnabled)||(ownerApp&&ownerApp.listingEnabled)||false });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -658,6 +682,30 @@ app.get('/api/owner/requests', ownerMiddleware, async (req, res) => {
     const venueIds = venues.map(v => v._id);
     const requests = await Booking.find({ venueId: { $in: venueIds } }).sort({ createdAt: -1 });
     res.json(requests);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Owner: request plan change
+app.post('/api/owner/plan-change-request', ownerMiddleware, async (req, res) => {
+  try {
+    const { plan } = req.body;
+    if (!plan) return res.status(400).json({ error: 'Plan key is required' });
+    const ownerUser = await User.findById(req.user.id);
+    if (!ownerUser) return res.status(404).json({ error: 'User not found' });
+    let planDoc = null;
+    try { planDoc = await PlatformPlan.findOne({ key: plan }); } catch(e) {}
+    const planLabel    = planDoc ? planDoc.name  : (plan.charAt(0).toUpperCase()+plan.slice(1));
+    const planPrice    = planDoc ? planDoc.price : 0;
+    const planPriceStr = 'Rs.'+Number(planPrice).toLocaleString('en-IN');
+    const pcr = await PlanChangeRequest.create({ userId:ownerUser._id, ownerName:ownerUser.name, ownerEmail:ownerUser.email, currentPlan:ownerUser.plan||'basic', requestedPlan:plan });
+    const admins = await User.find({ role:'superadmin' });
+    for (const admin of admins) {
+      await sendMail({ to:admin.email, subject:'Plan Upgrade Request: '+ownerUser.name+' wants '+planLabel,
+        html:emailHtml({ title:'Plan Upgrade Request', body:'<p><strong>'+ownerUser.name+'</strong> ('+ownerUser.email+') wants <strong>'+planLabel+'</strong> ('+planPriceStr+'). Go to Admin Panel → Plan Upgrade Requests.</p>', btnText:'Open Admin Panel', btnUrl:CLIENT_URL+'/admin.html', footer:'EVNTLY notification.' }) });
+    }
+    await sendMail({ to:ownerUser.email, subject:'Plan Change Request: '+planLabel,
+      html:emailHtml({ title:'Request Received', body:'<p>Hi '+ownerUser.name+', your request for <strong>'+planLabel+'</strong> ('+planPriceStr+') received. We will send a payment link within 1-2 business days.</p>', footer:'If not you, ignore this.' }) });
+    res.json({ ok:true, requestId:pcr._id });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1194,18 +1242,12 @@ app.post('/api/owner-applications/:id/confirm-payment', async (req, res) => {
     application.listingEnabled = true;
     application.paymentRef     = paymentRef || 'TXN_' + Date.now();
     await application.save();
-
-    // Create User account NOW (not at approval time)
     let user = await User.findOne({ email: application.email });
     if (!user) {
-      user = await User.create({
-        name:     application.name,
-        email:    application.email,
-        password: application.password, // already hashed
-        phone:    application.phone,
-        role:     'owner',
-      });
+      user = await User.create({ name:application.name, email:application.email, password:application.password, phone:application.phone, role:'owner' });
     }
+    const paidNow = new Date(); const expiryDate = new Date(paidNow); expiryDate.setFullYear(expiryDate.getFullYear()+1);
+    await User.findByIdAndUpdate(user._id, { plan:application.plan||'basic', planPaymentStatus:'paid', planPaidAt:paidNow, planExpiresAt:expiryDate, listingEnabled:true });
 
     const planDoc = await PlatformPlan.findOne({ key: application.plan || 'basic' });
 
@@ -1344,247 +1386,230 @@ app.delete('/api/admin/plans/:id', superadminMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── OWNER REPORTS ───────────────────────────────────────────────
+// ─── PLAN UPGRADE: confirm payment from payment-confirm.html ────────────────────
+app.post('/api/plan-change-requests/:id/confirm-payment', async (req, res) => {
+  try {
+    const { paymentRef } = req.body;
+    const pcr = await PlanChangeRequest.findById(req.params.id);
+    if (!pcr) return res.status(404).json({ error: 'Plan change request not found' });
+    if (pcr.status === 'completed') return res.json({ ok:true, already:true });
+    pcr.status = 'completed'; await pcr.save();
+    const ref = paymentRef||'TXN_'+Date.now();
+    const paidNow = new Date(); const expiry = new Date(paidNow); expiry.setFullYear(expiry.getFullYear()+1);
+    await User.findByIdAndUpdate(pcr.userId, { plan:pcr.requestedPlan, planPaymentStatus:'paid', planPaidAt:paidNow, planExpiresAt:expiry });
+    const planDoc  = await PlatformPlan.findOne({ key:pcr.requestedPlan }).catch(()=>null);
+    const planName = planDoc ? planDoc.name : pcr.requestedPlan;
+    const planPrice= planDoc ? planDoc.price : 0;
+    const expStr   = expiry.toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'});
+    await sendMail({ to:pcr.ownerEmail, subject:'Plan Upgraded: '+planName,
+      html:emailHtml({ title:'Plan Upgrade Confirmed!',
+        body:'<p>Hi <strong>'+pcr.ownerName+'</strong>, your plan is now <strong style="color:#c8a96e">'+planName+'</strong>!</p><table style="background:#f9f5ee;border-radius:8px;padding:16px;width:100%;margin:16px 0"><tr><td style="color:#888">Plan</td><td style="font-weight:700;color:#c8a96e">'+planName+'</td></tr><tr><td style="color:#888">Amount</td><td>Rs.'+Number(planPrice).toLocaleString('en-IN')+'</td></tr><tr><td style="color:#888">Valid Until</td><td style="font-weight:700">'+expStr+'</td></tr><tr><td style="color:#888">Ref</td><td style="font-family:monospace">'+ref+'</td></tr></table>',
+        btnText:'Go to Dashboard', btnUrl:CLIENT_URL, footer:'Receipt ref: '+ref }) });
+    res.json({ ok:true, planName, planExpiresAt:expiry });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
-// Reusable helper: get all bookings for an owner with optional date range
-async function getOwnerBookings(ownerId, { from, to, venueId, status } = {}) {
+// ─── ADMIN: Plan Change Requests ───────────────────────────────────────────────
+app.get('/api/admin/plan-change-requests', superadminMiddleware, async (req,res) => {
+  try { res.json(await PlanChangeRequest.find().sort({createdAt:-1})); } catch(e){ res.status(500).json({error:e.message}); }
+});
+app.post('/api/admin/plan-change-requests/:id/send-payment-link', superadminMiddleware, async (req,res) => {
+  try {
+    const pcr = await PlanChangeRequest.findById(req.params.id);
+    if (!pcr) return res.status(404).json({error:'Not found'});
+    const planDoc = await PlatformPlan.findOne({key:pcr.requestedPlan}).catch(()=>null)||{name:pcr.requestedPlan,price:0,maxVenues:1};
+    const paymentLink = `${CLIENT_URL}/payment-confirm.html?pcrId=${pcr._id}&plan=${encodeURIComponent(planDoc.name)}&amount=${planDoc.price}&email=${encodeURIComponent(pcr.ownerEmail)}`;
+    await sendMail({ to:pcr.ownerEmail, subject:'Plan Upgrade Payment Link: '+planDoc.name,
+      html:emailHtml({ title:'Complete Your Plan Upgrade', body:'<p>Hi <strong>'+pcr.ownerName+'</strong>, your upgrade to <strong>'+planDoc.name+'</strong> has been approved. Click below to pay and activate.</p>', btnText:'Pay & Upgrade', btnUrl:paymentLink, footer:'Link valid 48 hours.' }) });
+    pcr.status='payment_sent'; pcr.paymentSentAt=new Date(); pcr.paymentLink=paymentLink; await pcr.save();
+    res.json({ok:true,paymentLink});
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+app.patch('/api/admin/plan-change-requests/:id/complete', superadminMiddleware, async (req,res) => {
+  try {
+    const pcr = await PlanChangeRequest.findById(req.params.id);
+    if (!pcr) return res.status(404).json({error:'Not found'});
+    pcr.status='completed'; await pcr.save();
+    const paidNow=new Date(), expiry=new Date(paidNow); expiry.setFullYear(expiry.getFullYear()+1);
+    await User.findByIdAndUpdate(pcr.userId,{plan:pcr.requestedPlan,planPaymentStatus:'paid',planPaidAt:paidNow,planExpiresAt:expiry}).catch(()=>{});
+    res.json({ok:true});
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+app.delete('/api/admin/plan-change-requests/:id', superadminMiddleware, async (req,res) => {
+  try { await PlanChangeRequest.findByIdAndDelete(req.params.id); res.json({ok:true}); }
+  catch(e){ res.status(500).json({error:e.message}); }
+});
+
+// ─── OWNER REPORTS ───────────────────────────────────────────────
+async function getOwnerBookings(ownerId, { from, to, venueId, status }={}) {
   const venues = await Venue.find({ ownerId });
-  const ids    = venueId ? [venueId] : venues.map(v => v._id);
-  const q = { venueId: { $in: ids } };
-  if (from || to) { q.date = {}; if (from) q.date.$gte = from; if (to) q.date.$lte = to; }
-  if (status && status !== 'all') q.status = status;
-  const bookings = await Booking.find(q).sort({ date: 1, createdAt: 1 });
-  return { venues, bookings };
+  const ids    = venueId ? [venueId] : venues.map(v=>v._id);
+  const q = { venueId:{ $in:ids } };
+  if (from||to) { q.date={}; if(from) q.date.$gte=from; if(to) q.date.$lte=to; }
+  if (status&&status!=='all') q.status=status;
+  return { venues, bookings: await Booking.find(q).sort({date:1,createdAt:1}) };
 }
 
-// 1. REVENUE REPORT
-app.get('/api/owner/reports/revenue', ownerMiddleware, async (req, res) => {
+app.get('/api/owner/reports/summary', ownerMiddleware, async (req,res) => {
   try {
-    const { from, to, venueId, groupBy = 'month' } = req.query;
-    const { venues, bookings } = await getOwnerBookings(req.user.id, { from, to, venueId });
-    const paid = bookings.filter(b => ['confirmed','paid'].includes(b.status));
-    // Group by day/month/year
-    const groups = {};
-    paid.forEach(b => {
-      const d = new Date(b.date);
-      let key;
-      if (groupBy === 'day')   key = b.date;
-      else if (groupBy === 'year') key = String(d.getFullYear());
-      else key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-      if (!groups[key]) groups[key] = { period: key, revenue: 0, bookings: 0, avgBookingValue: 0 };
-      groups[key].revenue  += b.total || 0;
-      groups[key].bookings += 1;
-    });
-    Object.values(groups).forEach(g => { g.avgBookingValue = g.bookings ? Math.round(g.revenue / g.bookings) : 0; });
-    const series    = Object.values(groups).sort((a,b) => a.period.localeCompare(b.period));
-    const totalRev  = paid.reduce((s,b) => s + (b.total||0), 0);
-    const paidCount = paid.length;
-    // Revenue by venue
-    const byVenue = {};
-    paid.forEach(b => {
-      if (!byVenue[b.venueName]) byVenue[b.venueName] = { venue: b.venueName, revenue: 0, bookings: 0 };
-      byVenue[b.venueName].revenue  += b.total || 0;
-      byVenue[b.venueName].bookings += 1;
-    });
-    res.json({ series, totalRevenue: totalRev, totalBookings: paidCount,
-      avgBookingValue: paidCount ? Math.round(totalRev/paidCount) : 0,
-      byVenue: Object.values(byVenue).sort((a,b) => b.revenue - a.revenue),
-      venueCount: venues.length });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+    const {from,to} = req.query;
+    const {venues,bookings} = await getOwnerBookings(req.user.id,{from,to});
+    const paid=bookings.filter(b=>['confirmed','paid'].includes(b.status));
+    const revenue=paid.reduce((s,b)=>s+(b.total||0),0);
+    const now=new Date();
+    const thisMonthStart=new Date(now.getFullYear(),now.getMonth(),1).toISOString().split('T')[0];
+    const lastMonthStart=new Date(now.getFullYear(),now.getMonth()-1,1).toISOString().split('T')[0];
+    const lastMonthEnd  =new Date(now.getFullYear(),now.getMonth(),0).toISOString().split('T')[0];
+    const all=await Booking.find({venueId:{$in:venues.map(v=>v._id)}});
+    const thisMonth=all.filter(b=>b.date>=thisMonthStart&&['confirmed','paid'].includes(b.status));
+    const lastMonth=all.filter(b=>b.date>=lastMonthStart&&b.date<=lastMonthEnd&&['confirmed','paid'].includes(b.status));
+    const thisRev=thisMonth.reduce((s,b)=>s+(b.total||0),0);
+    const lastRev=lastMonth.reduce((s,b)=>s+(b.total||0),0);
+    const growth=lastRev>0?Math.round((thisRev-lastRev)/lastRev*100):(thisRev>0?100:0);
+    res.json({ totalRevenue:revenue, totalBookings:bookings.length, confirmedBookings:paid.length,
+      pendingBookings:bookings.filter(b=>b.status==='pending').length,
+      cancelledBookings:bookings.filter(b=>['rejected','cancelled'].includes(b.status)).length,
+      venueCount:venues.length, avgBookingValue:paid.length?Math.round(revenue/paid.length):0,
+      conversionRate:bookings.length?Math.round(paid.length/bookings.length*100):0,
+      thisMonthRevenue:thisRev, lastMonthRevenue:lastRev, revenueGrowth:growth, topVenue:venues.length?venues[0].name:'' });
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-// 2. BOOKINGS REPORT
-app.get('/api/owner/reports/bookings', ownerMiddleware, async (req, res) => {
+app.get('/api/owner/reports/revenue', ownerMiddleware, async (req,res) => {
   try {
-    const { from, to, venueId, status = 'all' } = req.query;
-    const { venues, bookings } = await getOwnerBookings(req.user.id, { from, to, venueId, status });
-    // Status breakdown
-    const byStatus = {};
-    bookings.forEach(b => { byStatus[b.status] = (byStatus[b.status]||0) + 1; });
-    // Event type breakdown
-    const byEventType = {};
-    bookings.forEach(b => {
-      const t = b.eventType || 'Other';
-      byEventType[t] = (byEventType[t]||0) + 1;
+    const {from,to,venueId,groupBy='month'} = req.query;
+    const {venues,bookings} = await getOwnerBookings(req.user.id,{from,to,venueId});
+    const paid=bookings.filter(b=>['confirmed','paid'].includes(b.status));
+    const groups={};
+    paid.forEach(b=>{
+      const d=new Date(b.date); let key;
+      if(groupBy==='day') key=b.date;
+      else if(groupBy==='year') key=String(d.getFullYear());
+      else key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      if(!groups[key]) groups[key]={period:key,revenue:0,bookings:0,avgBookingValue:0};
+      groups[key].revenue+=(b.total||0); groups[key].bookings+=1;
     });
-    // Venue utilisation (bookings per venue)
-    const byVenue = {};
-    venues.forEach(v => { byVenue[String(v._id)] = { venue: v.name, bookings: 0, revenue: 0, occupancyRate: 0 }; });
-    bookings.forEach(b => {
-      const k = String(b.venueId);
-      if (byVenue[k]) { byVenue[k].bookings += 1; byVenue[k].revenue += b.total||0; }
-    });
-    // Peak days
-    const byDay = {};
-    const days  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    bookings.forEach(b => {
-      if (!b.date) return;
-      const d = days[new Date(b.date).getDay()];
-      byDay[d] = (byDay[d]||0) + 1;
-    });
-    res.json({
-      bookings, total: bookings.length,
-      byStatus, byEventType,
-      byVenue: Object.values(byVenue).sort((a,b) => b.bookings - a.bookings),
-      byDay: days.map(d => ({ day: d, count: byDay[d]||0 })),
-    });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+    Object.values(groups).forEach(g=>{g.avgBookingValue=g.bookings?Math.round(g.revenue/g.bookings):0;});
+    const series=Object.values(groups).sort((a,b)=>a.period.localeCompare(b.period));
+    const totalRev=paid.reduce((s,b)=>s+(b.total||0),0);
+    const byVenue={};
+    paid.forEach(b=>{ if(!byVenue[b.venueName]) byVenue[b.venueName]={venue:b.venueName,revenue:0,bookings:0}; byVenue[b.venueName].revenue+=(b.total||0); byVenue[b.venueName].bookings+=1; });
+    res.json({ series, totalRevenue:totalRev, totalBookings:paid.length,
+      avgBookingValue:paid.length?Math.round(totalRev/paid.length):0,
+      byVenue:Object.values(byVenue).sort((a,b)=>b.revenue-a.revenue), venueCount:venues.length });
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-// 3. VENUE PERFORMANCE REPORT
-app.get('/api/owner/reports/venues', ownerMiddleware, async (req, res) => {
+app.get('/api/owner/reports/bookings', ownerMiddleware, async (req,res) => {
   try {
-    const { from, to } = req.query;
-    const venues   = await Venue.find({ ownerId: req.user.id });
-    const venueIds = venues.map(v => v._id);
-    const q = { venueId: { $in: venueIds } };
-    if (from || to) { q.date = {}; if (from) q.date.$gte = from; if (to) q.date.$lte = to; }
-    const bookings = await Booking.find(q);
-    const reviews  = await Review.find({ venueId: { $in: venueIds } });
-    const report = venues.map(v => {
-      const vb = bookings.filter(b => String(b.venueId) === String(v._id));
-      const vr = reviews.filter(r => String(r.venueId) === String(v._id));
-      const paid   = vb.filter(b => ['confirmed','paid'].includes(b.status));
-      const revSum = paid.reduce((s,b) => s + (b.total||0), 0);
-      const avgRating = vr.length ? (vr.reduce((s,r) => s+(r.rating||0),0)/vr.length).toFixed(1) : null;
-      return {
-        id: v._id, name: v.name, type: v.type, location: v.location,
-        capacity: v.capacity, price1hr: v.price1hr,
-        totalBookings: vb.length, confirmedBookings: paid.length,
-        revenue: revSum,
-        avgBookingValue: paid.length ? Math.round(revSum/paid.length) : 0,
-        conversionRate: vb.length ? Math.round(paid.length/vb.length*100) : 0,
-        reviewCount: vr.length, avgRating,
-        pendingBookings: vb.filter(b=>b.status==='pending').length,
-        cancelledBookings: vb.filter(b=>['rejected','cancelled'].includes(b.status)).length,
-      };
+    const {from,to,venueId,status='all'} = req.query;
+    const {venues,bookings} = await getOwnerBookings(req.user.id,{from,to,venueId,status});
+    const byStatus={}, byEventType={}, byVenue={}, byDay={};
+    const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    venues.forEach(v=>{byVenue[String(v._id)]={venue:v.name,bookings:0,revenue:0};});
+    bookings.forEach(b=>{
+      byStatus[b.status]=(byStatus[b.status]||0)+1;
+      byEventType[b.eventType||'Other']=(byEventType[b.eventType||'Other']||0)+1;
+      if(byVenue[String(b.venueId)]){byVenue[String(b.venueId)].bookings+=1;byVenue[String(b.venueId)].revenue+=(b.total||0);}
+      if(b.date){const d=days[new Date(b.date).getDay()];byDay[d]=(byDay[d]||0)+1;}
     });
-    res.json({ venues: report.sort((a,b)=>b.revenue-a.revenue) });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+    res.json({ bookings, total:bookings.length, byStatus, byEventType,
+      byVenue:Object.values(byVenue).sort((a,b)=>b.bookings-a.bookings),
+      byDay:days.map(d=>({day:d,count:byDay[d]||0})) });
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-// 4. CUSTOMER REPORT
-app.get('/api/owner/reports/customers', ownerMiddleware, async (req, res) => {
+app.get('/api/owner/reports/venues', ownerMiddleware, async (req,res) => {
   try {
-    const { from, to } = req.query;
-    const { bookings } = await getOwnerBookings(req.user.id, { from, to });
-    const customerMap = {};
-    bookings.forEach(b => {
-      const k = b.userEmail || b.userName || 'Unknown';
-      if (!customerMap[k]) customerMap[k] = { name: b.userName||'Unknown', email: b.userEmail||'', bookings: 0, revenue: 0, lastBooking: '' };
-      customerMap[k].bookings += 1;
-      if (['confirmed','paid'].includes(b.status)) customerMap[k].revenue += b.total||0;
-      if (!customerMap[k].lastBooking || b.date > customerMap[k].lastBooking) customerMap[k].lastBooking = b.date;
+    const {from,to} = req.query;
+    const venues=await Venue.find({ownerId:req.user.id});
+    const venueIds=venues.map(v=>v._id);
+    const q={venueId:{$in:venueIds}};
+    if(from||to){q.date={};if(from)q.date.$gte=from;if(to)q.date.$lte=to;}
+    const bookings=await Booking.find(q);
+    const reviews =await Review.find({venueId:{$in:venueIds}});
+    const report=venues.map(v=>{
+      const vb=bookings.filter(b=>String(b.venueId)===String(v._id));
+      const vr=reviews.filter(r=>String(r.venueId)===String(v._id));
+      const paid=vb.filter(b=>['confirmed','paid'].includes(b.status));
+      const revSum=paid.reduce((s,b)=>s+(b.total||0),0);
+      return { id:v._id, name:v.name, type:v.type, location:v.location, capacity:v.capacity, price1hr:v.price1hr,
+        totalBookings:vb.length, confirmedBookings:paid.length, revenue:revSum,
+        avgBookingValue:paid.length?Math.round(revSum/paid.length):0,
+        conversionRate:vb.length?Math.round(paid.length/vb.length*100):0,
+        reviewCount:vr.length, avgRating:vr.length?(vr.reduce((s,r)=>s+(r.rating||0),0)/vr.length).toFixed(1):null,
+        pendingBookings:vb.filter(b=>b.status==='pending').length,
+        cancelledBookings:vb.filter(b=>['rejected','cancelled'].includes(b.status)).length };
     });
-    const customers = Object.values(customerMap).sort((a,b)=>b.revenue-a.revenue);
-    const repeatCustomers = customers.filter(c=>c.bookings>1).length;
-    res.json({ customers, total: customers.length, repeatCustomers,
-      repeatRate: customers.length ? Math.round(repeatCustomers/customers.length*100) : 0 });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+    res.json({venues:report.sort((a,b)=>b.revenue-a.revenue)});
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-// 5. PAYMENT REPORT
-app.get('/api/owner/reports/payments', ownerMiddleware, async (req, res) => {
+app.get('/api/owner/reports/customers', ownerMiddleware, async (req,res) => {
   try {
-    const { from, to } = req.query;
-    const { bookings } = await getOwnerBookings(req.user.id, { from, to });
-    const confirmed = bookings.filter(b => ['confirmed','paid'].includes(b.status));
-    const fullyPaid    = confirmed.filter(b => b.paymentStatus === 'fully_paid' || b.status === 'paid');
-    const advancePaid  = confirmed.filter(b => b.paymentStatus === 'advance_paid');
-    const cashOnVisit  = confirmed.filter(b => b.cashOnVisitApproved);
-    const unpaid       = confirmed.filter(b => b.paymentStatus === 'unpaid' && !b.cashOnVisitApproved);
-    const totalCollected   = fullyPaid.reduce((s,b)=>s+(b.total||0),0)
-                           + advancePaid.reduce((s,b)=>s+(b.paidAmount||0),0);
-    const totalPending     = unpaid.reduce((s,b)=>s+(b.total||0),0)
-                           + advancePaid.reduce((s,b)=>s+((b.total||0)-(b.paidAmount||0)),0);
-    res.json({
-      bookings: confirmed,
-      summary: {
-        totalRevenue:   confirmed.reduce((s,b)=>s+(b.total||0),0),
-        totalCollected, totalPending,
-        fullyPaidCount: fullyPaid.length,
-        advancePaidCount: advancePaid.length,
-        cashOnVisitCount: cashOnVisit.length,
-        unpaidCount: unpaid.length,
-      },
-      byPaymentMethod: {
-        upi:        confirmed.filter(b=>b.paymentMethod==='upi').length,
-        card:       confirmed.filter(b=>b.paymentMethod==='card').length,
-        netbanking: confirmed.filter(b=>b.paymentMethod==='netbanking').length,
-        cash:       cashOnVisit.length,
-        other:      confirmed.filter(b=>!['upi','card','netbanking'].includes(b.paymentMethod)&&!b.cashOnVisitApproved).length,
-      },
+    const {from,to} = req.query;
+    const {bookings} = await getOwnerBookings(req.user.id,{from,to});
+    const map={};
+    bookings.forEach(b=>{
+      const k=b.userEmail||b.userName||'Unknown';
+      if(!map[k]) map[k]={name:b.userName||'Unknown',email:b.userEmail||'',bookings:0,revenue:0,lastBooking:''};
+      map[k].bookings+=1;
+      if(['confirmed','paid'].includes(b.status)) map[k].revenue+=(b.total||0);
+      if(!map[k].lastBooking||b.date>map[k].lastBooking) map[k].lastBooking=b.date;
     });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+    const customers=Object.values(map).sort((a,b)=>b.revenue-a.revenue);
+    const repeat=customers.filter(c=>c.bookings>1).length;
+    res.json({customers,total:customers.length,repeatCustomers:repeat,repeatRate:customers.length?Math.round(repeat/customers.length*100):0});
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-// 6. SUMMARY / DASHBOARD REPORT (all KPIs in one call)
-app.get('/api/owner/reports/summary', ownerMiddleware, async (req, res) => {
+app.get('/api/owner/reports/payments', ownerMiddleware, async (req,res) => {
   try {
-    const { from, to } = req.query;
-    const { venues, bookings } = await getOwnerBookings(req.user.id, { from, to });
-    const paid       = bookings.filter(b => ['confirmed','paid'].includes(b.status));
-    const revenue    = paid.reduce((s,b)=>s+(b.total||0),0);
-    const pending    = bookings.filter(b=>b.status==='pending').length;
-    const cancelled  = bookings.filter(b=>['rejected','cancelled'].includes(b.status)).length;
-    // Month-over-month growth
-    const now = new Date();
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth()-1, 1).toISOString().split('T')[0];
-    const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
-    const allBookings    = await Booking.find({ venueId: { $in: venues.map(v=>v._id) } });
-    const thisMonth = allBookings.filter(b=>b.date>=thisMonthStart&&['confirmed','paid'].includes(b.status));
-    const lastMonth = allBookings.filter(b=>b.date>=lastMonthStart&&b.date<=lastMonthEnd&&['confirmed','paid'].includes(b.status));
-    const thisRev = thisMonth.reduce((s,b)=>s+(b.total||0),0);
-    const lastRev = lastMonth.reduce((s,b)=>s+(b.total||0),0);
-    const growth  = lastRev > 0 ? Math.round((thisRev-lastRev)/lastRev*100) : (thisRev>0?100:0);
-    res.json({
-      totalRevenue: revenue, totalBookings: bookings.length, confirmedBookings: paid.length,
-      pendingBookings: pending, cancelledBookings: cancelled,
-      venueCount: venues.length, avgBookingValue: paid.length?Math.round(revenue/paid.length):0,
-      conversionRate: bookings.length?Math.round(paid.length/bookings.length*100):0,
-      thisMonthRevenue: thisRev, lastMonthRevenue: lastRev, revenueGrowth: growth,
-      topVenue: venues.length ? venues[0].name : '',
-    });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+    const {from,to} = req.query;
+    const {bookings} = await getOwnerBookings(req.user.id,{from,to});
+    const confirmed=bookings.filter(b=>['confirmed','paid'].includes(b.status));
+    const fullyPaid  =confirmed.filter(b=>b.paymentStatus==='fully_paid'||b.status==='paid');
+    const advancePaid=confirmed.filter(b=>b.paymentStatus==='advance_paid');
+    const cashVisit  =confirmed.filter(b=>b.cashOnVisitApproved);
+    const unpaid     =confirmed.filter(b=>b.paymentStatus==='unpaid'&&!b.cashOnVisitApproved);
+    const collected  =fullyPaid.reduce((s,b)=>s+(b.total||0),0)+advancePaid.reduce((s,b)=>s+(b.paidAmount||0),0);
+    const pending    =unpaid.reduce((s,b)=>s+(b.total||0),0)+advancePaid.reduce((s,b)=>s+((b.total||0)-(b.paidAmount||0)),0);
+    res.json({ bookings:confirmed, summary:{ totalRevenue:confirmed.reduce((s,b)=>s+(b.total||0),0),
+      totalCollected:collected, totalPending:pending, fullyPaidCount:fullyPaid.length,
+      advancePaidCount:advancePaid.length, cashOnVisitCount:cashVisit.length, unpaidCount:unpaid.length },
+      byPaymentMethod:{ upi:confirmed.filter(b=>b.paymentMethod==='upi').length,
+        card:confirmed.filter(b=>b.paymentMethod==='card').length,
+        netbanking:confirmed.filter(b=>b.paymentMethod==='netbanking').length,
+        cash:cashVisit.length,
+        other:confirmed.filter(b=>!['upi','card','netbanking'].includes(b.paymentMethod)&&!b.cashOnVisitApproved).length } });
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-// 7. EXPORT: CSV download (bookings)
-app.get('/api/owner/reports/export/bookings-csv', ownerMiddleware, async (req, res) => {
+app.get('/api/owner/reports/export/bookings-csv', ownerMiddleware, async (req,res) => {
   try {
-    const { from, to, status = 'all' } = req.query;
-    const { bookings } = await getOwnerBookings(req.user.id, { from, to, status });
-    const headers = ['Ref','Venue','Customer','Email','Date','Start Time','Hours','Guests','Event Type','Status','Payment Status','Base Price','Add-ons','Plate Charges','Total','Catering'];
-    const rows = bookings.map(b => [
-      b.ref||b._id, b.venueName||'', (b.userName||'').replace(/,/g,' '), b.userEmail||'',
-      b.date||'', b.startTime||'', b.hours||'', b.guests||'',
-      b.eventType||'', b.status, b.paymentStatus||'unpaid',
-      b.basePrice||0, b.addonPrice||0, b.plateCharges||0, b.total||0, b.cateringType||'none'
-    ].map(v => '"'+String(v).replace(/"/g,'""')+'"').join(','));
-    const csv = [headers.join(','), ...rows].join('\r\n');
+    const {from,to,status='all'} = req.query;
+    const {bookings} = await getOwnerBookings(req.user.id,{from,to,status});
+    const hdr=['Ref','Venue','Customer','Email','Date','Start Time','Hours','Guests','Event Type','Status','Payment Status','Base Price','Add-ons','Plate Charges','Total'];
+    const rows=bookings.map(b=>[b.ref||b._id,b.venueName||'',b.userName||'',b.userEmail||'',b.date||'',b.startTime||'',b.hours||'',b.guests||'',b.eventType||'',b.status,b.paymentStatus||'unpaid',b.basePrice||0,b.addonPrice||0,b.plateCharges||0,b.total||0]
+      .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
     res.setHeader('Content-Type','text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="evntly-bookings-' + (from||'all') + '.csv"');
-    res.send(csv);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+    res.setHeader('Content-Disposition','attachment; filename="evntly-bookings.csv"');
+    res.send([hdr.join(','),...rows].join('\r\n'));
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-// 8. EXPORT: CSV download (revenue)
-app.get('/api/owner/reports/export/revenue-csv', ownerMiddleware, async (req, res) => {
+app.get('/api/owner/reports/export/revenue-csv', ownerMiddleware, async (req,res) => {
   try {
-    const { from, to } = req.query;
-    const { bookings } = await getOwnerBookings(req.user.id, { from, to });
-    const paid = bookings.filter(b => ['confirmed','paid'].includes(b.status));
-    const headers = ['Date','Venue','Customer','Event Type','Duration (hrs)','Base Price','Add-ons','Plate Charges','Total','Payment Status'];
-    const rows = paid.map(b => [
-      b.date||'', b.venueName||'', (b.userName||'').replace(/,/g,' '),
-      b.eventType||'', b.hours||1,
-      b.basePrice||0, b.addonPrice||0, b.plateCharges||0, b.total||0, b.paymentStatus||''
-    ].map(v => '"'+String(v).replace(/"/g,'""')+'"').join(','));
-    const csv = [headers.join(','), ...rows].join('\r\n');
+    const {from,to} = req.query;
+    const {bookings} = await getOwnerBookings(req.user.id,{from,to});
+    const paid=bookings.filter(b=>['confirmed','paid'].includes(b.status));
+    const hdr=['Date','Venue','Customer','Event Type','Hours','Base Price','Add-ons','Plate Charges','Total','Payment Status'];
+    const rows=paid.map(b=>[b.date||'',b.venueName||'',b.userName||'',b.eventType||'',b.hours||1,b.basePrice||0,b.addonPrice||0,b.plateCharges||0,b.total||0,b.paymentStatus||'']
+      .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
     res.setHeader('Content-Type','text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="evntly-revenue-' + (from||'all') + '.csv"');
-    res.send(csv);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+    res.setHeader('Content-Disposition','attachment; filename="evntly-revenue.csv"');
+    res.send([hdr.join(','),...rows].join('\r\n'));
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 // ─── 404 HANDLER — always return JSON, never HTML ─────────────────────────────
