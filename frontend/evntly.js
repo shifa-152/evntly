@@ -675,6 +675,8 @@ function switchPanel(id, el) {
   if (id === 'slot-manager') loadSlotManager();
   if (id === 'overview')     loadOverview();
   if (id === 'my-reviews')   loadMyReviews();
+  if (id === 'reports')      loadReports();
+  if (id === 'my-plan')      loadMyPlan();
 }
 
 // ─── VENUES — PUBLIC ──────────────────────────────────────────────
@@ -2392,6 +2394,653 @@ function goToSlide(i) {
   document.querySelectorAll('[id^="dot-"]').forEach((d, idx) => {
     d.style.background = idx === i ? '#fff' : 'rgba(255,255,255,0.4)';
   });
+}
+
+
+// ─── REPORTS & ANALYTICS ──────────────────────────────────────────────────────
+
+// State
+var _rState = { tab: 'summary', from: '', to: '', venueId: '', groupBy: 'month' };
+
+async function loadReports() {
+  const container = document.getElementById('reports-content');
+  if (!container) return;
+
+  // Build filter bar + tabs
+  container.innerHTML = `
+    <style>
+      .rpt-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:20px;border-bottom:1px solid var(--border,#e5e5e5);padding-bottom:0}
+      .rpt-tab{padding:9px 16px;border:none;background:none;cursor:pointer;font-size:0.84rem;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;font-family:inherit}
+      .rpt-tab.active{color:var(--gold,#c8a96e);border-bottom-color:var(--gold,#c8a96e)}
+      .rpt-tab:hover{color:var(--dark)}
+      .rpt-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;padding:16px;background:var(--cream,#f9f5ee);border-radius:10px;margin-bottom:20px;border:1px solid var(--border,#e5e5e5)}
+      .rpt-filter-group{display:flex;flex-direction:column;gap:4px}
+      .rpt-filter-group label{font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px}
+      .rpt-filter-group select,.rpt-filter-group input{border:1px solid var(--border,#d1c4b0);border-radius:6px;padding:7px 10px;font-size:0.83rem;background:#fff;color:var(--dark);font-family:inherit;outline:none}
+      .rpt-filter-group select:focus,.rpt-filter-group input:focus{border-color:var(--gold)}
+      .rpt-kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+      .rpt-kpi{background:#fff;border:1px solid var(--border,#e5e5e5);border-radius:10px;padding:16px;text-align:center}
+      .rpt-kpi-val{font-size:1.5rem;font-weight:800;color:var(--dark)}
+      .rpt-kpi-val.gold{color:var(--gold,#c8a96e)}
+      .rpt-kpi-val.sage{color:var(--sage,#4a5e4f)}
+      .rpt-kpi-val.brick{color:var(--brick,#8b3a2a)}
+      .rpt-kpi-label{font-size:0.72rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.5px}
+      .rpt-kpi-sub{font-size:0.75rem;color:var(--muted);margin-top:2px}
+      .rpt-section{margin-bottom:28px}
+      .rpt-section-title{font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px}
+      .rpt-table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;border:1px solid var(--border,#e5e5e5)}
+      .rpt-table th{background:var(--cream,#f9f5ee);color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;padding:10px 14px;text-align:left;font-weight:700}
+      .rpt-table td{padding:11px 14px;border-bottom:1px solid var(--border,#f0e8de);font-size:0.84rem;color:var(--dark)}
+      .rpt-table tr:last-child td{border-bottom:none}
+      .rpt-table tr:hover td{background:var(--cream,#f9f5ee)}
+      .rpt-bar-wrap{background:var(--cream,#f9f5ee);border-radius:4px;height:8px;overflow:hidden;margin-top:4px}
+      .rpt-bar{height:8px;border-radius:4px;background:var(--gold,#c8a96e);transition:width .4s ease}
+      .rpt-chart-wrap{background:#fff;border:1px solid var(--border,#e5e5e5);border-radius:10px;padding:16px;margin-bottom:20px}
+      .rpt-chart-title{font-size:0.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+      .rpt-bar-chart{display:flex;flex-direction:column;gap:6px}
+      .rpt-bc-row{display:flex;align-items:center;gap:10px;font-size:0.81rem}
+      .rpt-bc-label{min-width:90px;color:var(--dark);font-weight:500;text-align:right;font-size:0.75rem}
+      .rpt-bc-bar-wrap{flex:1;background:var(--cream,#f9f5ee);border-radius:4px;height:22px;overflow:hidden}
+      .rpt-bc-bar{height:22px;border-radius:4px;background:var(--gold,#c8a96e);display:flex;align-items:center;padding-left:6px;font-size:0.72rem;font-weight:700;color:#1a1a1a;min-width:2px;transition:width .5s ease}
+      .rpt-bc-val{min-width:60px;font-weight:700;color:var(--dark);font-size:0.78rem}
+      .rpt-pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:700;text-transform:uppercase}
+      .rpt-pill-green{background:rgba(34,197,94,0.1);color:#16a34a}
+      .rpt-pill-amber{background:rgba(245,158,11,0.1);color:#b45309}
+      .rpt-pill-red{background:rgba(239,68,68,0.1);color:#ef4444}
+      .rpt-pill-blue{background:rgba(59,130,246,0.1);color:#2563eb}
+      .rpt-export-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+      .btn-export{background:#fff;border:1px solid var(--border,#e5e5e5);border-radius:7px;padding:8px 16px;font-size:0.8rem;font-weight:600;cursor:pointer;color:var(--dark);display:flex;align-items:center;gap:6px;transition:all .15s;font-family:inherit}
+      .btn-export:hover{border-color:var(--gold);color:var(--gold)}
+      .rpt-empty{padding:40px;text-align:center;color:var(--muted);font-size:0.88rem}
+    </style>
+    <div class="rpt-tabs" id="rpt-tabs">
+      <button class="rpt-tab active" onclick="rptTab('summary',this)">📊 Summary</button>
+      <button class="rpt-tab" onclick="rptTab('revenue',this)">💰 Revenue</button>
+      <button class="rpt-tab" onclick="rptTab('bookings',this)">📅 Bookings</button>
+      <button class="rpt-tab" onclick="rptTab('venues',this)">🏛️ Venues</button>
+      <button class="rpt-tab" onclick="rptTab('customers',this)">👥 Customers</button>
+      <button class="rpt-tab" onclick="rptTab('payments',this)">💳 Payments</button>
+    </div>
+    <div class="rpt-filters">
+      <div class="rpt-filter-group">
+        <label>From Date</label>
+        <input type="date" id="rpt-from" onchange="_rState.from=this.value;rptValidateDates();rptRender()" />
+      </div>
+      <div class="rpt-filter-group">
+        <label>To Date</label>
+        <input type="date" id="rpt-to" onchange="_rState.to=this.value;rptValidateDates();rptRender()" />
+      </div>
+      <div class="rpt-filter-group" id="rpt-venue-filter-wrap">
+        <label>Venue</label>
+        <select id="rpt-venue" onchange="_rState.venueId=this.value;rptRender()">
+          <option value="">All Venues</option>
+        </select>
+      </div>
+      <div class="rpt-filter-group" id="rpt-groupby-wrap">
+        <label>Group By</label>
+        <select id="rpt-groupby" onchange="_rState.groupBy=this.value;rptRender()">
+          <option value="day">Day</option>
+          <option value="month" selected>Month</option>
+          <option value="year">Year</option>
+        </select>
+      </div>
+      <div class="rpt-filter-group">
+        <label>&nbsp;</label>
+        <div style="display:flex;gap:6px">
+          <button class="btn-export" onclick="rptQuickRange(7)">Last 7d</button>
+          <button class="btn-export" onclick="rptQuickRange(30)">Last 30d</button>
+          <button class="btn-export" onclick="rptQuickRange(90)">Last 90d</button>
+          <button class="btn-export" onclick="rptQuickRangeThisMonth()">This Month</button>
+          <button class="btn-export" onclick="rptQuickRangeThisYear()">This Year</button>
+          <button class="btn-export" onclick="rptClearRange()" style="color:var(--muted)">All Time</button>
+        </div>
+      </div>
+    </div>
+    <div id="rpt-body"><div class="rpt-empty">Loading…</div></div>
+  `;
+
+  // Set default date range = last 30 days, and inject today's date into input max attrs
+  const rptToday = new Date().toISOString().split('T')[0];
+  const rptFrom30 = new Date(); rptFrom30.setDate(rptFrom30.getDate() - 29);
+  const rptDefaultFrom = rptFrom30.toISOString().split('T')[0];
+  // Replace ${rptToday} placeholders in the injected HTML
+  // Set max=today on date inputs to block future selection
+  const fi = document.getElementById('rpt-from'), ti = document.getElementById('rpt-to');
+  if (fi) { fi.max = rptToday; }
+  if (ti) { ti.max = rptToday; }
+  // Set default range
+  _rState.from = rptDefaultFrom; _rState.to = rptToday;
+  if (fi) fi.value = rptDefaultFrom;
+  if (ti) ti.value = rptToday;
+
+  // Load venues for filter dropdown
+  try {
+    const stats = await api('/owner/stats');
+    const sel = document.getElementById('rpt-venue');
+    if (sel) (stats.venues||[]).forEach(function(v) {
+      const o = document.createElement('option'); o.value = v._id; o.textContent = v.name; sel.appendChild(o);
+    });
+  } catch(e) {}
+
+  await rptRender();
+}
+
+function rptFmtDate(d) { return d.toISOString().split('T')[0]; }
+function rptQuickRange(days) {
+  const to   = new Date(); to.setHours(0,0,0,0);
+  const from = new Date(to); from.setDate(from.getDate() - days + 1);
+  _rState.from = rptFmtDate(from); _rState.to = rptFmtDate(to);
+  const fi = document.getElementById('rpt-from'), ti = document.getElementById('rpt-to');
+  if (fi) fi.value = _rState.from;
+  if (ti) ti.value = _rState.to;
+  rptRender();
+}
+function rptQuickRangeThisMonth() {
+  const now  = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), 1);
+  const to   = new Date(); to.setHours(0,0,0,0);
+  _rState.from = rptFmtDate(from); _rState.to = rptFmtDate(to);
+  const fi = document.getElementById('rpt-from'), ti = document.getElementById('rpt-to');
+  if (fi) fi.value = _rState.from; if (ti) ti.value = _rState.to;
+  rptRender();
+}
+function rptQuickRangeThisYear() {
+  const now  = new Date();
+  const from = new Date(now.getFullYear(), 0, 1);
+  const to   = new Date(); to.setHours(0,0,0,0);
+  _rState.from = rptFmtDate(from); _rState.to = rptFmtDate(to);
+  const fi = document.getElementById('rpt-from'), ti = document.getElementById('rpt-to');
+  if (fi) fi.value = _rState.from; if (ti) ti.value = _rState.to;
+  rptRender();
+}
+function rptClearRange() {
+  _rState.from = ''; _rState.to = '';
+  const fi = document.getElementById('rpt-from'), ti = document.getElementById('rpt-to');
+  if (fi) fi.value = ''; if (ti) ti.value = '';
+  rptRender();
+}
+function rptValidateDates() {
+  const today = new Date().toISOString().split('T')[0];
+  const fi = document.getElementById('rpt-from');
+  const ti = document.getElementById('rpt-to');
+  // Remove old inline errors
+  ['rpt-from-err','rpt-to-err'].forEach(function(id){ const e=document.getElementById(id); if(e) e.remove(); });
+  if (fi && _rState.from && _rState.from > today) {
+    _rState.from = today; fi.value = today;
+    fi.insertAdjacentHTML('afterend', '<span id="rpt-from-err" style="color:#ef4444;font-size:0.72rem;display:block;margin-top:2px">⚠️ Capped to today</span>');
+  }
+  if (ti && _rState.to && _rState.to > today) {
+    _rState.to = today; ti.value = today;
+    ti.insertAdjacentHTML('afterend', '<span id="rpt-to-err" style="color:#b45309;font-size:0.72rem;display:block;margin-top:2px">⚠️ Capped to today (reports are historical)</span>');
+  }
+  if (_rState.from && _rState.to && _rState.from > _rState.to) {
+    if (fi) fi.insertAdjacentHTML('afterend', '<span id="rpt-from-err" style="color:#ef4444;font-size:0.72rem;display:block;margin-top:2px">⚠️ Start must be before end date</span>');
+  }
+}
+
+function rptTab(tab, btn) {
+  _rState.tab = tab;
+  document.querySelectorAll('.rpt-tab').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  // Show/hide groupBy based on tab
+  const gbw = document.getElementById('rpt-groupby-wrap');
+  if (gbw) gbw.style.display = tab === 'revenue' ? '' : 'none';
+  rptRender();
+}
+
+async function rptRender() {
+  const body = document.getElementById('rpt-body');
+  if (!body) return;
+
+  const today = new Date().toISOString().split('T')[0];
+
+  // ── Validate date range ────────────────────────────────────
+  const errEl = document.getElementById('rpt-date-err');
+  if (errEl) errEl.remove(); // clear previous error
+
+  if (_rState.from && _rState.to && _rState.from > _rState.to) {
+    const fi = document.getElementById('rpt-from');
+    if (fi) fi.insertAdjacentHTML('afterend',
+      '<div id="rpt-date-err" style="color:#ef4444;font-size:0.75rem;margin-top:4px">⚠️ "From" date cannot be after "To" date</div>');
+    body.innerHTML = '<div class="rpt-empty" style="color:#ef4444">⚠️ Invalid date range: start date is after end date.<br><small style="color:var(--muted)">Please fix the date filters above.</small></div>';
+    return;
+  }
+  if (_rState.from && _rState.from > today) {
+    const fi = document.getElementById('rpt-from');
+    if (fi) fi.insertAdjacentHTML('afterend',
+      '<div id="rpt-date-err" style="color:#ef4444;font-size:0.75rem;margin-top:4px">⚠️ Reports only show historical data. Future start date selected.</div>');
+    body.innerHTML = '<div class="rpt-empty">📅 No data for future dates.<br><small style="color:var(--muted)">Reports are based on actual bookings — select a past date range to see data.</small></div>';
+    return;
+  }
+
+  // Warn if "to" is in the future — cap it silently to today
+  var effectiveTo = _rState.to;
+  var futureToWarning = '';
+  if (_rState.to && _rState.to > today) {
+    effectiveTo = today;
+    futureToWarning = '<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:7px;padding:9px 14px;font-size:0.8rem;color:#b45309;margin-bottom:14px">⚠️ End date is in the future — report data shown up to <strong>today (' + today + ')</strong> only.</div>';
+  }
+
+  body.innerHTML = '<div class="rpt-empty">⏳ Loading…</div>';
+
+  const qs = new URLSearchParams();
+  if (_rState.from)    qs.set('from',    _rState.from);
+  if (effectiveTo)     qs.set('to',      effectiveTo);
+  if (_rState.venueId) qs.set('venueId', _rState.venueId);
+  if (_rState.groupBy) qs.set('groupBy', _rState.groupBy);
+
+  try {
+    var content = '';
+    switch(_rState.tab) {
+      case 'summary':   content = await rptSummaryHTML(qs);  break;
+      case 'revenue':   content = await rptRevenueHTML(qs);  break;
+      case 'bookings':  content = await rptBookingsHTML(qs); break;
+      case 'venues':    content = await rptVenuesHTML(qs);   break;
+      case 'customers': content = await rptCustomersHTML(qs);break;
+      case 'payments':  content = await rptPaymentsHTML(qs); break;
+    }
+    body.innerHTML = futureToWarning + content;
+  } catch(e) {
+    body.innerHTML = '<div class="rpt-empty">⚠️ Failed to load report: ' + escHtml(e.error||e.message||'') + '</div>';
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function rptKpi(val, label, cls, sub) {
+  return '<div class="rpt-kpi"><div class="rpt-kpi-val '+(cls||'')+'">'+val+'</div><div class="rpt-kpi-label">'+label+'</div>'+(sub?'<div class="rpt-kpi-sub">'+sub+'</div>':'')+'</div>';
+}
+function rptBarChart(rows, title, maxVal) {
+  var max = maxVal || Math.max.apply(null, rows.map(function(r){return r.val||0;})) || 1;
+  return '<div class="rpt-chart-wrap"><div class="rpt-chart-title">'+title+'</div>'
+    + '<div class="rpt-bar-chart">'
+    + rows.map(function(r){
+        var pct = Math.max(2, Math.round((r.val||0)/max*100));
+        return '<div class="rpt-bc-row">'
+          +'<div class="rpt-bc-label">'+escHtml(String(r.label))+'</div>'
+          +'<div class="rpt-bc-bar-wrap"><div class="rpt-bc-bar" style="width:'+pct+'%">'+(pct>12?fmt(r.val):'')+'</div></div>'
+          +'<div class="rpt-bc-val">'+fmt(r.val)+'</div></div>';
+      }).join('')
+    + '</div></div>';
+}
+function rptStatusPill(status) {
+  var map = { confirmed:'green', paid:'green', pending:'amber', rejected:'red', cancelled:'red' };
+  return '<span class="rpt-pill rpt-pill-'+(map[status]||'blue')+'">'+status+'</span>';
+}
+function rptExportBtn(label, url) {
+  return '<button class="btn-export" onclick="rptDownload(\''+escHtml(url)+'\')">⬇️ '+escHtml(label)+'</button>';
+}
+function rptDownload(path) {
+  // Build full URL with auth token and date params
+  const qs = new URLSearchParams();
+  if (_rState.from) qs.set('from', _rState.from);
+  if (_rState.to)   qs.set('to',   _rState.to);
+  const token = localStorage.getItem('evntly_token');
+  const sep = path.includes('?') ? '&' : '?';
+  // Create a temporary link to trigger download with auth header via fetch
+  rptFetchAndDownload(path + sep + qs.toString(), token);
+}
+async function rptFetchAndDownload(url, token) {
+  try {
+    const res = await fetch(API_BASE + url, { headers: { 'Authorization': 'Bearer ' + token } });
+    const blob = await res.blob();
+    const cd   = res.headers.get('content-disposition') || '';
+    const fn   = cd.match(/filename="([^"]+)"/)?.[1] || 'report.csv';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = fn; a.click();
+    URL.revokeObjectURL(a.href);
+    toast('Report downloaded ✅', 'success');
+  } catch(e) { toast('Download failed', 'error'); }
+}
+
+// ── 1. SUMMARY ─────────────────────────────────────────────────
+async function rptSummaryHTML(qs) {
+  const d = await api('/owner/reports/summary?' + qs);
+  const growthClr = d.revenueGrowth >= 0 ? 'sage' : 'brick';
+  const growthIcon = d.revenueGrowth >= 0 ? '▲' : '▼';
+  var html =
+    '<div class="rpt-kpi-grid">'
+    + rptKpi(fmt(d.totalRevenue), 'Total Revenue', 'gold')
+    + rptKpi(d.totalBookings, 'Total Bookings', '')
+    + rptKpi(d.confirmedBookings, 'Confirmed', 'sage')
+    + rptKpi(d.pendingBookings, 'Pending', d.pendingBookings>0?'brick':'')
+    + rptKpi(d.conversionRate+'%', 'Conversion Rate', 'sage')
+    + rptKpi(fmt(d.avgBookingValue), 'Avg Booking Value', '')
+    + rptKpi(d.venueCount, 'My Venues', '')
+    + rptKpi(growthIcon+' '+Math.abs(d.revenueGrowth)+'%', 'MoM Revenue Growth', growthClr, 'vs last month')
+    + '</div>'
+    + '<div class="rpt-kpi-grid" style="margin-bottom:20px">'
+    + rptKpi(fmt(d.thisMonthRevenue), 'This Month', 'gold')
+    + rptKpi(fmt(d.lastMonthRevenue), 'Last Month', '')
+    + rptKpi(d.cancelledBookings, 'Cancelled', d.cancelledBookings>0?'brick':'')
+    + '</div>'
+    + '<div class="rpt-export-bar">'
+    + rptExportBtn('Export Bookings CSV', '/owner/reports/export/bookings-csv')
+    + rptExportBtn('Export Revenue CSV', '/owner/reports/export/revenue-csv')
+    + '</div>';
+  return html;
+}
+
+// ── 2. REVENUE ─────────────────────────────────────────────────
+async function rptRevenueHTML(qs) {
+  const d = await api('/owner/reports/revenue?' + qs);
+  var rows = d.series.length
+    ? rptBarChart(d.series.map(function(s){ return { label: s.period, val: s.revenue }; }), 'Revenue by Period')
+    : '<div class="rpt-empty">No revenue data for selected period.</div>';
+  var byVenueHtml = '';
+  if (d.byVenue && d.byVenue.length) {
+    var max = d.byVenue[0].revenue || 1;
+    byVenueHtml = '<div class="rpt-section"><div class="rpt-section-title">Revenue by Venue</div>'
+      + '<table class="rpt-table"><thead><tr><th>Venue</th><th>Revenue</th><th>Bookings</th><th>Share</th></tr></thead><tbody>'
+      + d.byVenue.map(function(v){
+          var share = d.totalRevenue > 0 ? Math.round(v.revenue/d.totalRevenue*100) : 0;
+          return '<tr><td><strong>'+escHtml(v.venue)+'</strong></td><td>'+fmt(v.revenue)+'</td><td>'+v.bookings+'</td>'
+            +'<td><div style="font-weight:700">'+share+'%</div><div class="rpt-bar-wrap"><div class="rpt-bar" style="width:'+share+'%"></div></div></td></tr>';
+        }).join('')
+      + '</tbody></table></div>';
+  }
+  var tableHtml = d.series.length
+    ? '<div class="rpt-section"><div class="rpt-section-title">Period Breakdown</div>'
+      + '<table class="rpt-table"><thead><tr><th>Period</th><th>Revenue</th><th>Bookings</th><th>Avg Value</th></tr></thead><tbody>'
+      + d.series.map(function(s){
+          return '<tr><td>'+s.period+'</td><td><strong>'+fmt(s.revenue)+'</strong></td><td>'+s.bookings+'</td><td>'+fmt(s.avgBookingValue)+'</td></tr>';
+        }).join('')
+      + '</tbody></table></div>'
+    : '';
+  return '<div class="rpt-kpi-grid">'
+    + rptKpi(fmt(d.totalRevenue), 'Total Revenue', 'gold')
+    + rptKpi(d.totalBookings, 'Paid Bookings', 'sage')
+    + rptKpi(fmt(d.avgBookingValue), 'Avg Value', '')
+    + '</div>'
+    + '<div class="rpt-export-bar">'+rptExportBtn('Export Revenue CSV', '/owner/reports/export/revenue-csv')+'</div>'
+    + rows + byVenueHtml + tableHtml;
+}
+
+// ── 3. BOOKINGS ─────────────────────────────────────────────────
+async function rptBookingsHTML(qs) {
+  const d = await api('/owner/reports/bookings?' + qs);
+  // Status chart
+  var statusRows = Object.entries(d.byStatus||{}).map(function(e){ return { label: e[0], val: e[1] }; })
+    .sort(function(a,b){ return b.val - a.val; });
+  var dayRows = (d.byDay||[]).map(function(r){ return { label: r.day, val: r.count }; });
+  var etRows  = Object.entries(d.byEventType||{}).map(function(e){ return { label: e[0], val: e[1] }; })
+    .sort(function(a,b){ return b.val - a.val; });
+  var tableHtml = '<div class="rpt-section"><div class="rpt-section-title">All Bookings</div>'
+    + '<div class="rpt-export-bar">'+rptExportBtn('Export Bookings CSV', '/owner/reports/export/bookings-csv')+'</div>'
+    + '<table class="rpt-table"><thead><tr><th>Ref</th><th>Venue</th><th>Customer</th><th>Date</th><th>Event</th><th>Hours</th><th>Guests</th><th>Total</th><th>Status</th></tr></thead><tbody>'
+    + (d.bookings||[]).slice(0,100).map(function(b){
+        return '<tr><td style="font-size:0.72rem;color:var(--muted);font-family:monospace">'+(b.ref||String(b._id||'').slice(-6))+'</td>'
+          +'<td>'+escHtml(b.venueName||'')+'</td>'
+          +'<td>'+escHtml(b.userName||'')+'</td>'
+          +'<td>'+escHtml(b.date||'')+'</td>'
+          +'<td>'+escHtml(b.eventType||'')+'</td>'
+          +'<td>'+b.hours+'h</td>'
+          +'<td>'+b.guests+'</td>'
+          +'<td><strong>'+fmt(b.total)+'</strong></td>'
+          +'<td>'+rptStatusPill(b.status)+'</td></tr>';
+      }).join('')
+    + '</tbody></table></div>';
+  return '<div class="rpt-kpi-grid">'
+    + rptKpi(d.total, 'Total Bookings', '')
+    + rptKpi(d.byStatus&&d.byStatus.confirmed ? d.byStatus.confirmed+' / '+(d.byStatus.paid||0) : '0', 'Confirmed / Paid', 'sage')
+    + rptKpi(d.byStatus&&d.byStatus.pending||0, 'Pending', 'amber')
+    + rptKpi((d.byStatus&&((d.byStatus.rejected||0)+(d.byStatus.cancelled||0)))||0, 'Cancelled', 'brick')
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">'
+    + (statusRows.length ? rptBarChart(statusRows, 'By Status') : '')
+    + (dayRows.length ? rptBarChart(dayRows, 'Bookings by Day of Week') : '')
+    + '</div>'
+    + (etRows.length ? rptBarChart(etRows, 'By Event Type') : '')
+    + tableHtml;
+}
+
+// ── 4. VENUES ──────────────────────────────────────────────────
+async function rptVenuesHTML(qs) {
+  const d = await api('/owner/reports/venues?' + qs);
+  if (!d.venues || !d.venues.length) return '<div class="rpt-empty">No venue data available.</div>';
+  var topRev = d.venues[0].revenue || 1;
+  return '<div class="rpt-section"><div class="rpt-section-title">Venue Performance</div>'
+    + '<table class="rpt-table"><thead><tr><th>Venue</th><th>Type</th><th>Revenue</th><th>Bookings</th><th>Avg Value</th><th>Conversion</th><th>Rating</th><th>Pending</th></tr></thead><tbody>'
+    + d.venues.map(function(v){
+        var share = Math.round(v.revenue/topRev*100);
+        return '<tr>'
+          + '<td><strong>'+escHtml(v.name)+'</strong><br><small style="color:var(--muted)">'+escHtml(v.location)+'</small></td>'
+          + '<td>'+escHtml(v.type)+'</td>'
+          + '<td><strong>'+fmt(v.revenue)+'</strong><div class="rpt-bar-wrap"><div class="rpt-bar" style="width:'+share+'%"></div></div></td>'
+          + '<td>'+v.confirmedBookings+'<span style="color:var(--muted);font-size:0.75rem"> / '+v.totalBookings+' total</span></td>'
+          + '<td>'+fmt(v.avgBookingValue)+'</td>'
+          + '<td><strong style="color:'+(v.conversionRate>=50?'var(--sage)':'var(--brick)')+'">'+v.conversionRate+'%</strong></td>'
+          + '<td>'+(v.avgRating ? '★ '+v.avgRating+' <small style="color:var(--muted)">('+v.reviewCount+')</small>' : '<span style="color:var(--muted)">—</span>')+'</td>'
+          + '<td>'+(v.pendingBookings > 0 ? '<span class="rpt-pill rpt-pill-amber">'+v.pendingBookings+' pending</span>' : '—')+'</td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table></div>';
+}
+
+// ── 5. CUSTOMERS ───────────────────────────────────────────────
+async function rptCustomersHTML(qs) {
+  const d = await api('/owner/reports/customers?' + qs);
+  if (!d.customers || !d.customers.length) return '<div class="rpt-empty">No customer data available.</div>';
+  return '<div class="rpt-kpi-grid">'
+    + rptKpi(d.total, 'Total Customers', '')
+    + rptKpi(d.repeatCustomers, 'Repeat Customers', 'sage')
+    + rptKpi(d.repeatRate+'%', 'Repeat Rate', 'sage')
+    + '</div>'
+    + '<div class="rpt-section"><div class="rpt-section-title">Customer List (by Revenue)</div>'
+    + '<table class="rpt-table"><thead><tr><th>Customer</th><th>Email</th><th>Bookings</th><th>Revenue</th><th>Last Booking</th><th>Type</th></tr></thead><tbody>'
+    + d.customers.map(function(c){
+        return '<tr>'
+          + '<td><strong>'+escHtml(c.name)+'</strong></td>'
+          + '<td style="font-size:0.78rem;color:var(--muted)">'+escHtml(c.email)+'</td>'
+          + '<td>'+c.bookings+'</td>'
+          + '<td><strong>'+fmt(c.revenue)+'</strong></td>'
+          + '<td>'+escHtml(c.lastBooking||'—')+'</td>'
+          + '<td>'+(c.bookings > 1 ? '<span class="rpt-pill rpt-pill-green">Repeat</span>' : '<span class="rpt-pill rpt-pill-blue">New</span>')+'</td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table></div>';
+}
+
+// ── 6. PAYMENTS ────────────────────────────────────────────────
+async function rptPaymentsHTML(qs) {
+  const d = await api('/owner/reports/payments?' + qs);
+  const s = d.summary || {};
+  var pmRows = Object.entries(d.byPaymentMethod||{})
+    .filter(function(e){ return e[1] > 0; })
+    .map(function(e){ return { label: e[0], val: e[1] }; })
+    .sort(function(a,b){ return b.val - a.val; });
+  return '<div class="rpt-kpi-grid">'
+    + rptKpi(fmt(s.totalRevenue||0), 'Total Revenue', 'gold')
+    + rptKpi(fmt(s.totalCollected||0), 'Collected', 'sage')
+    + rptKpi(fmt(s.totalPending||0), 'Pending Collection', 'brick')
+    + rptKpi(s.fullyPaidCount||0, 'Fully Paid', 'sage')
+    + rptKpi(s.advancePaidCount||0, 'Advance Paid', '')
+    + rptKpi(s.cashOnVisitCount||0, 'Cash on Visit', '')
+    + rptKpi(s.unpaidCount||0, 'Unpaid', s.unpaidCount>0?'brick':'')
+    + '</div>'
+    + (pmRows.length ? rptBarChart(pmRows, 'Payment Method Distribution') : '')
+    + '<div class="rpt-section"><div class="rpt-section-title">Payment Details</div>'
+    + '<table class="rpt-table"><thead><tr><th>Ref</th><th>Customer</th><th>Venue</th><th>Date</th><th>Total</th><th>Paid</th><th>Remaining</th><th>Status</th></tr></thead><tbody>'
+    + (d.bookings||[]).slice(0,100).map(function(b){
+        var paid = b.paidAmount||0; var rem = (b.total||0)-paid;
+        if (b.status==='paid'||b.paymentStatus==='fully_paid'){ paid=b.total; rem=0; }
+        return '<tr>'
+          +'<td style="font-size:0.72rem;font-family:monospace;color:var(--muted)">'+(b.ref||String(b._id||'').slice(-6))+'</td>'
+          +'<td>'+escHtml(b.userName||'')+'</td>'
+          +'<td>'+escHtml(b.venueName||'')+'</td>'
+          +'<td>'+escHtml(b.date||'')+'</td>'
+          +'<td><strong>'+fmt(b.total)+'</strong></td>'
+          +'<td style="color:var(--sage);font-weight:600">'+fmt(paid)+'</td>'
+          +'<td style="color:'+(rem>0?'var(--brick)':'var(--muted)')+'">'+fmt(rem)+'</td>'
+          +'<td>'+rptStatusPill(b.status)+'</td>'
+          +'</tr>';
+      }).join('')
+    + '</tbody></table></div>';
+}
+
+
+// ─── MY PLAN (owner) ──────────────────────────────────────────────────────────
+async function loadMyPlan() {
+  const container = document.getElementById('my-plan-content');
+  if (!container) return;
+  container.innerHTML = '<p style="color:var(--muted);padding:32px;text-align:center">Loading plan details\u2026</p>';
+  try {
+    const [stats, allPlans] = await Promise.all([
+      api('/owner/stats'),
+      api('/plans').catch(() => []),
+    ]);
+    const planKey   = stats.plan || 'basic';
+    const isPaid    = stats.planPaymentStatus === 'paid' || stats.listingEnabled;
+    const paidAt    = stats.planPaidAt    ? new Date(stats.planPaidAt)    : null;
+    const expiresAt = stats.planExpiresAt ? new Date(stats.planExpiresAt) : null;
+    const today     = new Date(); today.setHours(0, 0, 0, 0);
+    const curPlan   = allPlans.find(function(p) { return p.key === planKey; }) || {
+      name: planKey.charAt(0).toUpperCase() + planKey.slice(1),
+      key: planKey, price: 0, maxVenues: 1, features: []
+    };
+    const statusBadge = isPaid
+      ? '<span style="background:rgba(34,197,94,0.12);color:#16a34a;border:1px solid rgba(34,197,94,0.3);border-radius:20px;padding:4px 14px;font-size:0.74rem;font-weight:700">\u2705 Active</span>'
+      : '<span style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:20px;padding:4px 14px;font-size:0.74rem;font-weight:700">\u26a0\ufe0f Payment Pending</span>';
+    var deadlineHtml = '';
+    var isExpired = false, isNear = false, daysLeft = 9999;
+    if (expiresAt) {
+      daysLeft  = Math.ceil((expiresAt - today) / (1000*60*60*24));
+      isExpired = daysLeft <= 0;
+      isNear    = !isExpired && daysLeft <= 30;
+      var expStr = expiresAt.toLocaleDateString('en-IN', { day:'2-digit', month:'long', year:'numeric' });
+      var bg   = isExpired ? 'rgba(239,68,68,0.08)'  : isNear ? 'rgba(245,158,11,0.08)' : 'rgba(74,94,79,0.07)';
+      var bdr  = isExpired ? 'rgba(239,68,68,0.28)'  : isNear ? 'rgba(245,158,11,0.3)'  : 'rgba(74,94,79,0.2)';
+      var clr  = isExpired ? 'var(--brick)'           : isNear ? '#b45309'               : 'var(--sage)';
+      var icon = isExpired ? '\U0001f534' : isNear ? '\u26a0\ufe0f' : '\u2705';
+      var msg  = isExpired
+        ? 'Plan Expired \u2014 please renew to continue listing venues'
+        : isNear ? ('Expiring in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + ' \u2014 renew soon')
+        : ('Valid for ' + daysLeft + ' more day' + (daysLeft !== 1 ? 's' : ''));
+      deadlineHtml =
+        '<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:8px;margin-top:14px;background:'+bg+';border:1px solid '+bdr+'">'
+        + '<span style="font-size:1.2rem">'+icon+'</span>'
+        + '<div style="flex:1"><div style="font-size:0.84rem;font-weight:700;color:'+clr+'">'+msg+'</div>'
+        + '<div style="font-size:0.76rem;color:var(--muted);margin-top:1px">'+(isExpired?'Expired on ':'Expires on ')+expStr+'</div>'
+        + '</div></div>';
+    } else if (paidAt) {
+      deadlineHtml = '<div style="font-size:0.79rem;color:var(--muted);margin-top:10px">\u2705 Plan activated on '
+        + paidAt.toLocaleDateString('en-IN', { day:'2-digit', month:'long', year:'numeric' }) + '</div>';
+    }
+    var maxVL = curPlan.maxVenues === -1 ? 'Unlimited venue listings' : curPlan.maxVenues + ' venue listing' + (curPlan.maxVenues > 1 ? 's' : '');
+    var feats = (curPlan.features && curPlan.features.length) ? curPlan.features : [maxVL];
+    var featsHtml = feats.map(function(f) {
+      return '<div style="display:flex;align-items:center;gap:8px;font-size:0.83rem;color:rgba(255,255,255,0.75);padding:4px 0">'
+        + '<span style="color:#6db87a;font-weight:700;flex-shrink:0">\u2713</span>' + escHtml(f) + '</div>';
+    }).join('');
+    var currentCardHtml =
+      '<div style="background:linear-gradient(135deg,#1a1209 0%,#1a1a1a 100%);border:1.5px solid rgba(200,169,110,0.6);border-radius:14px;padding:22px 26px;margin-bottom:24px;position:relative;overflow:hidden">'
+      + '<div style="position:absolute;top:-40px;right:-40px;width:130px;height:130px;border-radius:50%;background:rgba(200,169,110,0.04);pointer-events:none"></div>'
+      + '<div style="font-size:0.65rem;color:rgba(200,169,110,0.55);font-weight:700;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:8px">Your Current Plan</div>'
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:8px">'
+      + '<div style="font-family:\'Playfair Display\',serif;font-size:1.5rem;font-weight:900;color:#fff">' + escHtml(curPlan.name) + '</div>'
+      + '<div style="display:flex;align-items:center;gap:10px">' + statusBadge
+      + '<span style="font-size:1.3rem;font-weight:800;color:#c8a96e">\u20b9' + Number(curPlan.price).toLocaleString('en-IN') + '</span></div></div>'
+      + '<div style="font-size:0.8rem;color:rgba(255,255,255,0.4);margin-bottom:8px">\U0001f4e6 ' + escHtml(maxVL) + '</div>'
+      + (featsHtml ? '<div style="border-top:1px solid rgba(255,255,255,0.07);padding-top:10px;margin-top:4px">' + featsHtml + '</div>' : '')
+      + deadlineHtml + '</div>';
+    var renewBannerHtml = '';
+    if (isExpired || isNear) {
+      renewBannerHtml =
+        '<div style="background:rgba(200,169,110,0.08);border:1.5px solid rgba(200,169,110,0.4);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">'
+        + '<div>'
+        + '<div style="font-size:0.88rem;font-weight:700;color:var(--dark)">' + (isExpired ? '\U0001f534 Your plan has expired' : '\u26a0\ufe0f Your plan expires soon') + '</div>'
+        + '<div style="font-size:0.78rem;color:var(--muted);margin-top:2px">' + (isExpired ? 'Renew now to restore venue listing access' : 'Renew to avoid losing listing access') + '</div>'
+        + '</div>'
+        + '<button class="btn-submit" style="padding:9px 20px;width:auto;font-size:0.85rem" onclick="cpSelectRenew()">\U0001f504 Renew ' + escHtml(curPlan.name) + ' Plan</button>'
+        + '</div>';
+    }
+    var activePlans = allPlans.filter(function(p) { return p.isActive !== false; });
+    var planCardsHtml = activePlans.length
+      ? activePlans.map(function(p) {
+          var isCur = p.key === planKey;
+          var mxL   = p.maxVenues === -1 ? 'Unlimited venues' : p.maxVenues + ' venue listing' + (p.maxVenues > 1 ? 's' : '');
+          var feat  = (p.features && p.features.length ? p.features : [mxL]).join(' \u00b7 ');
+          return '<div id="cp-card-' + p.key + '" onclick="cpSelect(this,\'' + p.key + '\',' + p.price + ')"'
+            + ' style="border:2px solid ' + (isCur ? 'var(--gold)' : 'var(--border,#e5e5e5)') + ';border-radius:10px;padding:14px 18px;cursor:pointer;transition:all .18s;background:' + (isCur ? 'rgba(200,169,110,0.05)' : 'var(--card-bg,#fff)') + ';">'
+            + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
+            + '<div>'
+            + (isCur ? '<div style="font-size:0.62rem;font-weight:700;background:var(--gold);color:#1a1a1a;border-radius:8px;padding:1px 8px;text-transform:uppercase;display:inline-block;margin-bottom:4px">Current</div><br>' : '')
+            + '<span style="font-family:\'Playfair Display\',serif;font-weight:700;font-size:0.95rem;color:var(--dark)">' + escHtml(p.name) + '</span>'
+            + '</div>'
+            + '<span style="font-size:1.15rem;font-weight:800;color:var(--gold)">\u20b9' + Number(p.price).toLocaleString('en-IN') + '</span>'
+            + '</div>'
+            + '<div style="font-size:0.75rem;color:var(--muted);margin-top:5px">' + escHtml(feat) + '</div>'
+            + '</div>';
+        }).join('')
+      : '<p style="color:var(--muted);font-size:0.85rem">No plans available.</p>';
+    container.innerHTML =
+      currentCardHtml + renewBannerHtml
+      + '<div style="font-size:0.68rem;color:var(--muted);font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px">Switch or Resubscribe</div>'
+      + '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px" id="cp-cards">' + planCardsHtml + '</div>'
+      + '<div id="cp-action" style="display:none;background:rgba(200,169,110,0.06);border:1px solid rgba(200,169,110,0.22);border-radius:10px;padding:16px 20px">'
+      + '<div style="font-size:0.88rem;font-weight:600;color:var(--dark);margin-bottom:12px;line-height:1.5" id="cp-action-text"></div>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + '<button class="btn-submit" style="padding:10px 26px;width:auto" onclick="cpConfirm()">Proceed \u2192</button>'
+      + '<button class="btn-ghost" style="padding:10px 18px" onclick="cpCancel()">Cancel</button></div>'
+      + '<div id="cp-result" style="display:none;margin-top:12px;padding:10px 14px;border-radius:7px;font-size:0.83rem"></div></div>';
+  } catch(e) {
+    container.innerHTML = '<div style="color:var(--brick);padding:24px;text-align:center">\u26a0\ufe0f Failed to load plan details. ' + (e.error || '') + '</div>';
+  }
+}
+
+var _cpKey = null, _cpPrice = 0;
+function cpSelectRenew() {
+  var cards = document.querySelectorAll('[id^="cp-card-"]');
+  if (!cards.length) return;
+  var first = cards[0];
+  var key   = first.id.replace('cp-card-', '');
+  var priceEl = first.querySelector('[style*="font-weight:800"]');
+  var price = priceEl ? parseFloat((priceEl.textContent||'0').replace(/[^\d.]/g,'')) : 0;
+  cpSelect(first, key, price);
+  document.getElementById('cp-action')?.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+function cpSelect(card, key, price) {
+  _cpKey = key; _cpPrice = price;
+  document.querySelectorAll('[id^="cp-card-"]').forEach(function(c) {
+    var sel = c.id === 'cp-card-' + key;
+    c.style.borderColor = sel ? 'var(--gold)' : 'var(--border,#e5e5e5)';
+    c.style.background  = sel ? 'rgba(200,169,110,0.05)' : 'var(--card-bg,#fff)';
+  });
+  var aDiv = document.getElementById('cp-action');
+  var aTxt = document.getElementById('cp-action-text');
+  var rDiv = document.getElementById('cp-result');
+  if (rDiv) rDiv.style.display = 'none';
+  var cardEl   = document.getElementById('cp-card-' + key);
+  var isCur    = cardEl && cardEl.innerHTML.includes('Current');
+  var planName = key.charAt(0).toUpperCase() + key.slice(1);
+  var priceStr = '\u20b9' + Number(price).toLocaleString('en-IN');
+  aTxt.innerHTML = isCur
+    ? '\U0001f504 <strong>Renew / Resubscribe to ' + escHtml(planName) + ' Plan</strong> \u2014 ' + priceStr
+      + '<br><small style="color:var(--muted);font-weight:400">Renewing extends your plan by 1 year. Our team will send you a payment link.</small>'
+    : '\u2b06\ufe0f <strong>Upgrade to ' + escHtml(planName) + ' Plan</strong> \u2014 ' + priceStr
+      + '<br><small style="color:var(--muted);font-weight:400">Our team will send you a payment link. Plan activates after payment.</small>';
+  aDiv.style.display = 'block';
+}
+function cpCancel() {
+  _cpKey = null;
+  document.getElementById('cp-action').style.display = 'none';
+}
+async function cpConfirm() {
+  if (!_cpKey) return;
+  var rDiv = document.getElementById('cp-result');
+  rDiv.style.display = 'none';
+  var btn = document.querySelector('#cp-action .btn-submit');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending\u2026'; }
+  try {
+    await api('/owner/plan-change-request', { method:'POST', body:{ plan: _cpKey } });
+    rDiv.style.cssText = 'display:block;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);color:#16a34a;padding:10px 14px;border-radius:7px;font-size:0.83rem;margin-top:12px';
+    rDiv.innerHTML = '\u2705 <strong>Request sent!</strong> Our team will email you a payment link within 1\u20132 business days.';
+    toast('Plan request sent! Check your email \U0001f4e7', 'success');
+  } catch(e) {
+    rDiv.style.cssText = 'display:block;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.28);color:#ef4444;padding:10px 14px;border-radius:7px;font-size:0.83rem;margin-top:12px';
+    rDiv.textContent = '\u274c ' + (e.error || 'Request failed. Please try again.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Proceed \u2192'; }
+  }
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────

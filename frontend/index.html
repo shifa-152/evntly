@@ -273,6 +273,9 @@
       <div class="sidebar-item" id="edit-venue-nav" style="display:none" onclick="switchPanel('edit-venue',this)">✏️ Edit Venue</div>
       <div class="sidebar-item" id="nav-requests" onclick="switchPanel('requests',this)">📬 Booking Requests</div>
       <div class="sidebar-item" onclick="switchPanel('slot-manager',this)">🗓️ Slot Manager</div>
+
+      <div class="sidebar-item" id="nav-my-plan" onclick="switchPanel('my-plan',this)">💳 My Plan</div>
+      <div class="sidebar-item" onclick="switchPanel('reports',this)">📈 Reports</div>
     </div>
 
     <div class="sidebar-divider"></div>
@@ -501,6 +504,20 @@
       <h3 class="panel-title">Slot Manager</h3>
       <p style="color:var(--muted);font-size:0.88rem;margin-bottom:24px">Toggle time slots on/off for each venue. Booked slots are automatically locked.</p>
       <div id="slot-manager-content"><p style="color:var(--muted);padding:32px;text-align:center">Loading venues…</p></div>
+    </div>
+
+    <!-- ═══ REPORTS ═══ -->
+    <div class="dash-panel" id="panel-reports">
+      <h3 class="panel-title">Reports & Analytics</h3>
+      <p style="color:var(--muted);font-size:0.88rem;margin-bottom:24px">Generate detailed reports for your venues. Filter by date range and export to CSV.</p>
+      <div id="reports-content"></div>
+    </div>
+
+    <!-- ═══ MY PLAN (owner) ═══ -->
+    <div class="dash-panel" id="panel-my-plan">
+      <h3 class="panel-title">My Subscription Plan</h3>
+      <p style="color:var(--muted);font-size:0.88rem;margin-bottom:24px">View your current plan, check expiry, upgrade, or renew.</p>
+      <div id="my-plan-content" style="max-width:640px"><p style="color:var(--muted);padding:32px;text-align:center">Loading…</p></div>
     </div>
 
     <!-- ═══ PROFILE ═══ -->

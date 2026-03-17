@@ -3,182 +3,257 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Complete Payment — EVNTLY</title>
+<title>EVNTLY — Complete Payment</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:#111;color:#fff;font-family:'Helvetica Neue',Arial,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-  .card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:16px;max-width:480px;width:100%;overflow:hidden}
-  .card-header{background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #2a2a2a}
-  .brand{font-family:Georgia,serif;font-size:1.8rem;font-weight:900;color:#c8a96e;letter-spacing:1px}
-  .brand span{color:#fff}
-  .card-body{padding:32px}
-  .step{display:none}.step.active{display:block}
-  h2{font-size:1.15rem;color:#fff;margin-bottom:8px}
-  .sub{font-size:0.85rem;color:#888;line-height:1.6;margin-bottom:24px}
-  .plan-box{background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:18px;margin-bottom:20px}
-  .plan-label{font-size:0.68rem;color:#c8a96e;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px}
-  .plan-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-  .plan-name{font-size:1rem;font-weight:700;color:#fff}
-  .plan-price{font-size:1.4rem;font-weight:800;color:#c8a96e}
-  .plan-detail{font-size:0.78rem;color:#666}
-  .input-group{margin-bottom:14px}
-  label{display:block;font-size:0.72rem;color:#888;margin-bottom:5px}
-  input,select{width:100%;background:#111;border:1px solid #333;border-radius:8px;padding:10px 13px;color:#fff;font-size:0.88rem;outline:none;transition:border-color .2s}
-  input:focus,select:focus{border-color:#c8a96e}
-  .btn{display:block;width:100%;padding:13px;border-radius:10px;border:none;font-size:0.95rem;font-weight:700;cursor:pointer;transition:opacity .2s;margin-top:4px}
-  .btn-gold{background:#c8a96e;color:#1a1a1a}.btn-gold:hover{opacity:.88}
-  .btn-ghost{background:transparent;color:#888;border:1px solid #333;margin-top:10px}.btn-ghost:hover{border-color:#555;color:#fff}
-  .msg{padding:12px 16px;border-radius:8px;font-size:0.84rem;margin-bottom:16px;display:none}
-  .msg.success{background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);color:#4ade80}
-  .msg.error{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:#f87171}
-  .success-icon{font-size:3rem;text-align:center;margin-bottom:16px}
-  .note{font-size:0.72rem;color:#555;text-align:center;margin-top:14px;line-height:1.6}
-  .sim-note{background:rgba(200,169,110,0.06);border:1px solid rgba(200,169,110,0.15);border-radius:8px;padding:12px;font-size:0.78rem;color:#888;margin-bottom:16px;line-height:1.6}
-  .sim-note strong{color:#c8a96e}
-  a{color:#c8a96e;text-decoration:none}
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--gold:#c8a96e;--dark:#1a1a1a;--brick:#8b3a2a;--sage:#4a5e4f;--success:#22c55e}
+body{font-family:'DM Sans',sans-serif;background:#0f0f0f;color:#e8e8e8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:16px;width:100%;max-width:480px;overflow:hidden}
+.card-header{background:#111;padding:28px 32px;text-align:center;border-bottom:1px solid #2a2a2a}
+.logo{font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:900;color:var(--gold)}
+.logo span{color:#fff}
+.logo-sub{font-size:0.72rem;color:#666;letter-spacing:2px;text-transform:uppercase;margin-top:4px}
+.card-body{padding:32px}
+
+/* States */
+.state{display:none;text-align:center}
+.state.active{display:block}
+.state-icon{font-size:3rem;margin-bottom:16px}
+.state-title{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:#fff;margin-bottom:8px}
+.state-msg{font-size:0.88rem;color:#888;line-height:1.6;margin-bottom:24px}
+
+/* Plan details box */
+.plan-box{background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:16px 18px;margin-bottom:24px;text-align:left}
+.plan-box-label{font-size:0.67rem;color:var(--gold);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px}
+.plan-box-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1f1f1f;font-size:0.85rem}
+.plan-box-row:last-child{border-bottom:none}
+.plan-box-key{color:#666}
+.plan-box-val{font-weight:600;color:#ccc}
+.plan-box-val.gold{color:var(--gold);font-size:1.1rem;font-weight:800}
+
+/* Payment methods */
+.pm-label{font-size:0.7rem;color:#666;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;text-align:left}
+.pm-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:20px}
+.pm-btn{background:#111;border:1.5px solid #2a2a2a;border-radius:8px;padding:12px;cursor:pointer;text-align:center;transition:all .18s;color:#aaa;font-size:0.82rem;font-weight:600}
+.pm-btn:hover{border-color:#444;color:#fff}
+.pm-btn.selected{border-color:var(--gold);background:rgba(200,169,110,0.06);color:var(--gold)}
+.pm-btn .pm-icon{font-size:1.3rem;margin-bottom:4px}
+
+/* Inputs */
+.field{margin-bottom:14px;text-align:left}
+.field label{display:block;font-size:0.72rem;color:#666;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px}
+.field input{width:100%;background:#111;border:1px solid #2a2a2a;border-radius:7px;padding:11px 14px;color:#fff;font-size:0.88rem;outline:none;transition:border .2s;font-family:inherit}
+.field input:focus{border-color:var(--gold)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* Buttons */
+.btn-pay{width:100%;background:var(--gold);color:#1a1a1a;border:none;border-radius:8px;padding:14px;font-size:0.92rem;font-weight:700;cursor:pointer;letter-spacing:0.3px;transition:opacity .2s;margin-top:4px}
+.btn-pay:hover{opacity:0.9}
+.btn-pay:disabled{opacity:0.4;cursor:not-allowed}
+.btn-back{display:block;width:100%;background:transparent;border:1px solid #2a2a2a;border-radius:8px;padding:12px;color:#666;font-size:0.85rem;cursor:pointer;margin-top:10px;text-align:center;text-decoration:none;transition:border .2s}
+.btn-back:hover{border-color:#444;color:#aaa}
+
+/* Notice */
+.notice{background:rgba(200,169,110,0.06);border:1px solid rgba(200,169,110,0.2);border-radius:7px;padding:10px 14px;font-size:0.78rem;color:#888;margin-bottom:20px;text-align:left}
+.notice strong{color:var(--gold)}
+
+/* Success / Error */
+.success-icon{font-size:3.5rem;margin-bottom:14px}
+.error-x{width:60px;height:60px;background:rgba(239,68,68,0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.8rem}
 </style>
 </head>
 <body>
 <div class="card">
   <div class="card-header">
-    <div class="brand">EVNTLY<span>.</span></div>
-    <div style="font-size:0.78rem;color:#555;margin-top:4px">Venue Owner Activation</div>
+    <div class="logo">EVNTLY<span>.</span></div>
+    <div class="logo-sub" id="page-subtitle">Complete Payment</div>
   </div>
   <div class="card-body">
 
-    <!-- STEP 1: Payment form -->
-    <div class="step active" id="step-pay">
-      <h2>Complete Your Platform Fee</h2>
-      <p class="sub">You're one step away from listing your venues. Complete the payment below to activate your account.</p>
-
-      <div class="plan-box" id="plan-summary">
-        <div class="plan-label">Your Selected Plan</div>
-        <div class="plan-row">
-          <span class="plan-name" id="disp-plan">—</span>
-          <span class="plan-price" id="disp-price">—</span>
-        </div>
-        <div class="plan-detail" id="disp-email"></div>
-      </div>
-
-      <div class="sim-note">
-        <strong>🔔 Demo / Staging Mode</strong><br>
-        This is a simulated payment page. In production, integrate Razorpay or Stripe here. For now, enter any UPI/transaction reference to confirm payment.
-      </div>
-
-      <div class="msg" id="pay-msg"></div>
-
-      <div class="input-group">
-        <label>Payment Method</label>
-        <select id="pay-method">
-          <option value="upi">UPI</option>
-          <option value="card">Credit / Debit Card</option>
-          <option value="netbanking">Net Banking</option>
-          <option value="wallet">Wallet</option>
-        </select>
-      </div>
-      <div class="input-group">
-        <label>Transaction / UPI Reference ID *</label>
-        <input id="pay-ref" type="text" placeholder="e.g. UPI123456789012" />
-      </div>
-
-      <button class="btn btn-gold" onclick="confirmPayment()">✅ Confirm Payment →</button>
-      <button class="btn btn-ghost" onclick="window.location.href='/'">← Back to EVNTLY</button>
-      <p class="note">Your login credentials will be emailed to you automatically after payment confirmation.</p>
+    <!-- LOADING -->
+    <div class="state active" id="state-loading">
+      <div class="state-icon">⏳</div>
+      <div class="state-title">Loading…</div>
+      <div class="state-msg">Verifying your payment link.</div>
     </div>
 
-    <!-- STEP 2: Success -->
-    <div class="step" id="step-done">
+    <!-- INVALID -->
+    <div class="state" id="state-invalid">
+      <div class="error-x">✕</div>
+      <div class="state-title">Invalid Payment Link</div>
+      <div class="state-msg">This payment link is invalid or has expired. Please contact the EVNTLY admin team for a new link.</div>
+      <a href="/" class="btn-back">← Back to EVNTLY</a>
+    </div>
+
+    <!-- PAYMENT FORM -->
+    <div class="state" id="state-form">
+      <div class="plan-box" id="plan-details"></div>
+      <div class="notice">🔒 <strong>Secure demo payment.</strong> No real transaction will occur.</div>
+      <div class="pm-label">Select Payment Method</div>
+      <div class="pm-grid">
+        <div class="pm-btn" onclick="selectMethod(this,'upi')"><div class="pm-icon">📱</div>UPI</div>
+        <div class="pm-btn" onclick="selectMethod(this,'card')"><div class="pm-icon">💳</div>Card</div>
+        <div class="pm-btn" onclick="selectMethod(this,'netbanking')"><div class="pm-icon">🏦</div>Net Banking</div>
+        <div class="pm-btn" onclick="selectMethod(this,'wallet')"><div class="pm-icon">👛</div>Wallet</div>
+      </div>
+      <div id="method-fields"></div>
+      <button class="btn-pay" id="pay-btn" disabled onclick="processPayment()">Select a payment method</button>
+      <a href="/" class="btn-back">← Back to EVNTLY</a>
+    </div>
+
+    <!-- PROCESSING -->
+    <div class="state" id="state-processing">
+      <div class="state-icon">⏳</div>
+      <div class="state-title">Processing Payment…</div>
+      <div class="state-msg">Please wait while we confirm your payment.</div>
+    </div>
+
+    <!-- SUCCESS -->
+    <div class="state" id="state-success">
       <div class="success-icon">🎉</div>
-      <h2 style="text-align:center">Payment Confirmed!</h2>
-      <p class="sub" style="text-align:center">Your EVNTLY venue owner account is now fully activated. Check your email for login credentials.</p>
-      <div class="plan-box" style="text-align:center">
-        <div style="font-size:0.78rem;color:#888;margin-bottom:4px">Payment Reference</div>
-        <div id="done-ref" style="font-family:monospace;color:#c8a96e;font-weight:700;font-size:0.9rem">—</div>
-      </div>
-      <button class="btn btn-gold" onclick="window.location.href='/'">Go to EVNTLY & Sign In →</button>
-      <p class="note">Didn't receive the email? Check your spam folder or contact support.</p>
-    </div>
-
-    <!-- STEP 3: Already paid -->
-    <div class="step" id="step-already">
-      <div class="success-icon">✅</div>
-      <h2 style="text-align:center">Payment Already Confirmed</h2>
-      <p class="sub" style="text-align:center">Your account is already active. Sign in to your owner dashboard to start listing venues.</p>
-      <button class="btn btn-gold" onclick="window.location.href='/'">Sign In to EVNTLY →</button>
-    </div>
-
-    <!-- STEP 4: Error -->
-    <div class="step" id="step-error">
-      <div class="success-icon">❌</div>
-      <h2 style="text-align:center">Invalid Payment Link</h2>
-      <p class="sub" style="text-align:center">This payment link is invalid or has expired. Please contact the EVNTLY admin team for a new link.</p>
-      <button class="btn btn-ghost" onclick="window.location.href='/'">← Back to EVNTLY</button>
+      <div class="state-title" id="success-title">Payment Successful!</div>
+      <div class="state-msg" id="success-msg"></div>
+      <a href="/" class="btn-back">← Go to EVNTLY</a>
     </div>
 
   </div>
 </div>
 
 <script>
-const params  = new URLSearchParams(location.search);
-const appId   = params.get('appId');
-const planName= params.get('plan')  || 'Basic';
-const amount  = params.get('amount') || '4999';
-const email   = params.get('email') || '';
+const _host = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:5000' : location.protocol + '//' + location.hostname + ':5000';
 
-// Validate link has required params
-if (!appId) {
-  showStep('error');
-} else {
-  document.getElementById('disp-plan').textContent  = planName + ' Plan';
-  document.getElementById('disp-price').textContent = '₹' + Number(amount).toLocaleString('en-IN');
-  document.getElementById('disp-email').textContent = email ? 'Account: ' + email : '';
+// Parse URL params
+const params   = new URLSearchParams(location.search);
+const appId    = params.get('appId');    // new owner activation
+const pcrId    = params.get('pcrId');    // plan upgrade
+const planName = params.get('plan')  || '';
+const amount   = params.get('amount') || '0';
+const email    = params.get('email')  || '';
+
+let selectedPayMethod = null;
+
+function setState(id) {
+  document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
+  document.getElementById('state-' + id).classList.add('active');
 }
 
-function showStep(id) {
-  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-  document.getElementById('step-' + id).classList.add('active');
+function fmt(n) {
+  return '₹' + Number(n).toLocaleString('en-IN');
 }
 
-function showMsg(text, type) {
-  const el = document.getElementById('pay-msg');
-  el.className = 'msg ' + type;
-  el.textContent = text;
-  el.style.display = 'block';
+async function init() {
+  // Must have either appId or pcrId
+  if (!appId && !pcrId) { setState('invalid'); return; }
+
+  // Set subtitle
+  document.getElementById('page-subtitle').textContent =
+    pcrId ? 'Plan Upgrade Payment' : 'Venue Owner Activation';
+
+  // Build plan details box
+  const detailsEl = document.getElementById('plan-details');
+  detailsEl.innerHTML =
+    '<div class="plan-box-label">' + (pcrId ? 'Plan Upgrade Details' : 'Activation Details') + '</div>'
+    + '<div class="plan-box-row"><span class="plan-box-key">Plan</span><span class="plan-box-val">' + escHtml(planName) + '</span></div>'
+    + '<div class="plan-box-row"><span class="plan-box-key">Amount</span><span class="plan-box-val gold">' + fmt(amount) + '</span></div>'
+    + '<div class="plan-box-row"><span class="plan-box-key">Email</span><span class="plan-box-val">' + escHtml(email) + '</span></div>';
+
+  setState('form');
 }
 
-async function confirmPayment() {
-  const ref = document.getElementById('pay-ref').value.trim();
-  if (!ref) { showMsg('Please enter a transaction reference ID.', 'error'); return; }
+function escHtml(s) {
+  const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML;
+}
 
-  const btn = document.querySelector('#step-pay .btn-gold');
-  btn.textContent = 'Processing…';
-  btn.disabled = true;
+function selectMethod(btn, method) {
+  document.querySelectorAll('.pm-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedPayMethod = method;
+  const fields = document.getElementById('method-fields');
+  const payBtn  = document.getElementById('pay-btn');
 
+  if (method === 'upi') {
+    fields.innerHTML =
+      '<div class="field"><label>UPI ID</label>'
+      + '<input type="text" id="upi-id" placeholder="yourname@upi" oninput="updatePayBtn()" /></div>';
+  } else if (method === 'card') {
+    fields.innerHTML =
+      '<div class="field"><label>Card Number</label>'
+      + '<input type="text" id="card-num" placeholder="4242 4242 4242 4242" maxlength="19" oninput="this.value=this.value.replace(/[^0-9 ]/g,\'\');updatePayBtn()" /></div>'
+      + '<div class="field-row">'
+      + '<div class="field"><label>Expiry</label><input type="text" placeholder="MM/YY" maxlength="5" oninput="updatePayBtn()" /></div>'
+      + '<div class="field"><label>CVV</label><input type="text" placeholder="123" maxlength="3" oninput="updatePayBtn()" /></div>'
+      + '</div>'
+      + '<div class="field"><label>Name on Card</label><input type="text" id="card-name" placeholder="Your Name" oninput="updatePayBtn()" /></div>';
+  } else {
+    fields.innerHTML =
+      '<div style="padding:12px 0;font-size:0.84rem;color:#888;text-align:center">You will be redirected to your '
+      + (method === 'netbanking' ? 'bank' : 'wallet') + ' to complete payment.</div>';
+    payBtn.disabled = false;
+    payBtn.textContent = 'Pay ' + fmt(amount) + ' →';
+    return;
+  }
+  updatePayBtn();
+}
+
+function updatePayBtn() {
+  const payBtn = document.getElementById('pay-btn');
+  let ready = false;
+  if (selectedPayMethod === 'upi') {
+    ready = !!document.getElementById('upi-id')?.value.trim();
+  } else if (selectedPayMethod === 'card') {
+    const num  = (document.getElementById('card-num')?.value || '').replace(/\s/g,'');
+    const name = document.getElementById('card-name')?.value.trim();
+    ready = num.length >= 16 && name.length > 0;
+  }
+  payBtn.disabled = !ready;
+  payBtn.textContent = ready ? ('Pay ' + fmt(amount) + ' →') : 'Complete the fields above';
+}
+
+async function processPayment() {
+  setState('processing');
+  // Simulate payment processing delay
+  await new Promise(r => setTimeout(r, 2000));
+  const payRef = 'TXN_' + Date.now();
   try {
-    const host = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-      ? 'http://localhost:5000' : `${location.protocol}//${location.hostname}:5000`;
-
-    const res = await fetch(`${host}/api/owner-applications/${appId}/confirm-payment`, {
+    let endpoint, body;
+    if (pcrId) {
+      // Plan upgrade payment
+      endpoint = _host + '/api/plan-change-requests/' + pcrId + '/confirm-payment';
+    } else {
+      // New owner activation
+      endpoint = _host + '/api/owner-applications/' + appId + '/confirm-payment';
+    }
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentRef: ref }),
+      body: JSON.stringify({ paymentRef: payRef }),
     });
     const data = await res.json();
-
     if (!res.ok) throw data;
 
-    if (data.already) {
-      showStep('already');
-    } else {
-      document.getElementById('done-ref').textContent = ref;
-      showStep('done');
+    // Show success with expiry info for plan upgrades
+    document.getElementById('success-title').textContent =
+      pcrId ? 'Plan Upgraded Successfully!' : 'Account Activated!';
+    var expiryNote = '';
+    if (pcrId && data.planExpiresAt) {
+      var exp = new Date(data.planExpiresAt).toLocaleDateString('en-IN', {day:'2-digit', month:'long', year:'numeric'});
+      expiryNote = '<br><span style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:4px 10px;font-size:0.8rem;color:#22c55e;display:inline-block;margin-top:8px">✅ Valid until ' + exp + '</span>';
     }
+    document.getElementById('success-msg').innerHTML = pcrId
+      ? 'Your <strong>' + escHtml(planName) + '</strong> plan is now active. Your dashboard has been updated.' + expiryNote + '<br><br><small style="color:#555">Payment Ref: ' + payRef + '</small>'
+      : 'Your EVNTLY venue owner account is now fully activated. Check your email for login details.<br><br><small style="color:#555">Payment Ref: ' + payRef + '</small>';
+    setState('success');
   } catch(e) {
-    showMsg(e.error || 'Payment confirmation failed. Please try again or contact support.', 'error');
-    btn.textContent = '✅ Confirm Payment →';
-    btn.disabled = false;
+    document.getElementById('success-title').textContent = 'Payment Error';
+    document.getElementById('success-msg').textContent = e.error || e.message || 'Something went wrong. Please contact support.';
+    setState('success');
   }
 }
+
+// Start
+init();
 </script>
 </body>
 </html>

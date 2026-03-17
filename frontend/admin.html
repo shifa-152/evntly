@@ -248,6 +248,7 @@ body{font-family:'DM Sans',sans-serif;background:#0f0f0f;color:#e8e8e8;min-heigh
       <div class="sidebar-section">
         <div class="sidebar-section-label">Approvals</div>
         <button class="sidebar-btn" id="sb-owner-approvals" onclick="showPanel('owner-approvals',this)">🏛️ Owner Registrations <span class="notif" id="approval-notif" style="display:none">0</span></button>
+        <button class="sidebar-btn" id="sb-plan-requests" onclick="showPanel('plan-requests',this)">🔄 Plan Upgrade Requests <span class="notif" id="plan-req-notif" style="display:none">0</span></button>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-section-label">Content</div>
@@ -284,6 +285,13 @@ body{font-family:'DM Sans',sans-serif;background:#0f0f0f;color:#e8e8e8;min-heigh
         <div class="panel-title">Owner Registration Approvals</div>
         <div class="panel-sub">Review proof documents and approve or reject venue owner applications.</div>
         <div id="approvals-list"><div class="empty-state"><div class="empty-icon">⏳</div>Loading…</div></div>
+      </div>
+
+      <!-- ═ PLAN UPGRADE REQUESTS ═ -->
+      <div class="admin-panel" id="panel-plan-requests">
+        <div class="panel-title">Plan Upgrade Requests</div>
+        <div class="panel-sub">Owners requesting a plan change or resubscription. Review and send them a payment link.</div>
+        <div id="plan-requests-list"><div class="empty-state"><div class="empty-icon">⏳</div>Loading…</div></div>
       </div>
 
       <!-- ═ HOMEPAGE PHOTOS ═ -->
@@ -602,6 +610,7 @@ function showPanel(id, btn){
   if(id==='users')           loadAllUsers();
   if(id==='bookings')        loadAllBookings();
   if(id==='plans')           loadPlansAdmin();
+  if(id==='plan-requests')   loadPlanRequests();
 }
 
 // ─── OVERVIEW ────────────────────────────────────────────
@@ -641,6 +650,13 @@ async function loadOverview(){
           </div>
         </div>`).join('')
       : '<div class="empty-state"><div class="empty-icon">✅</div>No pending approvals</div>';
+    // Plan upgrade request notif badge
+    try {
+      const planReqs = await api('/admin/plan-change-requests');
+      const pendingPR = planReqs.filter(r => r.status === 'pending').length;
+      const pnb = document.getElementById('plan-req-notif');
+      if (pnb) { if(pendingPR > 0){ pnb.textContent = pendingPR; pnb.style.display = 'inline-block'; } else pnb.style.display = 'none'; }
+    } catch(e) {}
   } catch(e){ toast('Overview load failed','error'); }
 }
 
@@ -1125,6 +1141,141 @@ async function confirmSendPaymentLink(appId) {
   }
 }
 
+// ─── PLAN UPGRADE REQUESTS ──────────────────────────────────────────────────
+async function loadPlanRequests() {
+  const el = document.getElementById('plan-requests-list');
+  if (!el) return;
+  el.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div>Loading…</div>';
+  try {
+    const reqs = await api('/admin/plan-change-requests');
+    // update notif badge
+    const pendingPR = reqs.filter(r => r.status === 'pending').length;
+    const pnb = document.getElementById('plan-req-notif');
+    if (pnb) { if(pendingPR > 0){ pnb.textContent = pendingPR; pnb.style.display = 'inline-block'; } else pnb.style.display = 'none'; }
+    if (!reqs.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div>No plan upgrade requests yet.</div>';
+      return;
+    }
+    const statusLabel = { pending:'Pending', payment_sent:'Payment Sent', completed:'Completed' };
+    const statusPill  = { pending:'pill-pending', payment_sent:'pill-owner', completed:'pill-approved' };
+    el.innerHTML = reqs.map(r => {
+      const d = new Date(r.createdAt).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+      return `
+        <div class="owner-pending-card" style="margin-bottom:14px">
+          <div class="owner-pending-header">
+            <div style="flex:1;min-width:0">
+              <div class="owner-info-name" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                ${esc(r.ownerName)}
+                <span class="pill ${statusPill[r.status]||'pill-pending'}">${statusLabel[r.status]||r.status}</span>
+              </div>
+              <div class="owner-info-email" style="margin-top:3px">${esc(r.ownerEmail)} &middot; ${d}</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 14px;padding:12px 16px;background:#111;border-radius:8px;border:1px solid #2a2a2a">
+            <div style="flex:1;min-width:120px">
+              <div style="font-size:0.67rem;color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Current Plan</div>
+              <div style="font-weight:700;color:#ccc;font-size:0.9rem">${esc(r.currentPlan||'basic')}</div>
+            </div>
+            <div style="display:flex;align-items:center;color:#444;font-size:1.2rem;padding-top:10px">&rarr;</div>
+            <div style="flex:1;min-width:120px">
+              <div style="font-size:0.67rem;color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Requested Plan</div>
+              <div style="font-weight:700;color:var(--gold);font-size:0.95rem">${esc(r.requestedPlan)}</div>
+            </div>
+            ${r.paymentLink ? `<div style="flex:2;min-width:200px">
+              <div style="font-size:0.67rem;color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Payment Link Sent</div>
+              <a href="${esc(r.paymentLink)}" target="_blank" style="font-size:0.72rem;color:var(--gold);word-break:break-all;text-decoration:none">${esc(r.paymentLink)}</a>
+            </div>` : ''}
+          </div>
+          <div class="approval-actions">
+            ${r.status === 'pending' || r.status === 'payment_sent'
+              ? `<button class="btn-approve" style="background:rgba(200,169,110,0.1);color:var(--gold);border-color:rgba(200,169,110,0.3)"
+                   onclick="sendUpgradePaymentLink('${r._id}')">&#x1F4B3; Send Payment Link</button>`
+              : ''}
+            ${r.status === 'payment_sent'
+              ? `<button class="btn-primary-gold" style="font-size:0.78rem;padding:5px 14px"
+                   onclick="markUpgradeComplete('${r._id}')">&#x2705; Mark Completed</button>`
+              : ''}
+            ${r.status === 'completed'
+              ? `<span style="color:#22c55e;font-weight:600;font-size:0.85rem">&#x1F389; Upgrade Complete</span>`
+              : ''}
+            <button class="btn-delete" style="margin-left:auto"
+              onclick="dismissPlanReq('${r._id}')">&#x1F5D1; Dismiss</button>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div>Failed to load: ' + esc(e.error||e.message||'') + '</div>';
+  }
+}
+
+async function sendUpgradePaymentLink(reqId) {
+  try {
+    const reqs = await api('/admin/plan-change-requests');
+    const r = reqs.find(x => x._id === reqId);
+    if (!r) { toast('Request not found','error'); return; }
+    document.getElementById('plan-modal-body').innerHTML = `
+      <div style="margin-bottom:16px">
+        <div style="font-size:0.8rem;color:#888;margin-bottom:6px">Sending upgrade payment link to:</div>
+        <div style="font-weight:700;color:#fff;font-size:1rem">${esc(r.ownerName)}</div>
+        <div style="font-size:0.82rem;color:var(--muted)">${esc(r.ownerEmail)}</div>
+      </div>
+      <div style="background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:16px;margin-bottom:16px">
+        <div style="font-size:0.7rem;color:var(--gold);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Plan Upgrade Details</div>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:0.68rem;color:#555;margin-bottom:2px">Current Plan</div>
+            <div style="font-weight:700;color:#ccc">${esc(r.currentPlan)}</div>
+          </div>
+          <div style="color:#444;font-size:1.3rem">&rarr;</div>
+          <div>
+            <div style="font-size:0.68rem;color:#555;margin-bottom:2px">Upgrading To</div>
+            <div style="font-weight:700;color:var(--gold);font-size:1.05rem">${esc(r.requestedPlan)}</div>
+          </div>
+        </div>
+      </div>
+      <div id="ul-result" style="display:none;padding:10px 14px;border-radius:8px;font-size:0.83rem;margin-bottom:12px"></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-primary-gold" onclick="confirmSendUpgradeLink('${r._id}')">&#x1F4B3; Send Payment Link &rarr;</button>
+        <button class="btn-ghost-dark" onclick="closeModal('plan-modal')">Cancel</button>
+      </div>`;
+    document.getElementById('plan-modal').classList.add('active');
+  } catch(e) { toast('Error: '+(e.error||e.message||''),'error'); }
+}
+
+async function confirmSendUpgradeLink(reqId) {
+  const res = document.getElementById('ul-result');
+  try {
+    const data = await api('/admin/plan-change-requests/' + reqId + '/send-payment-link', { method:'POST' });
+    res.style.cssText = 'display:block;background:rgba(34,197,94,0.08);color:#22c55e;border:1px solid rgba(34,197,94,0.25);padding:10px 14px;border-radius:8px;font-size:0.83rem;margin-bottom:12px';
+    res.innerHTML = '&#x2705; Payment link sent! The owner will receive an email.';
+    if (data.paymentLink) {
+      res.innerHTML += '<br><small style="opacity:0.6;word-break:break-all">' + esc(data.paymentLink) + '</small>';
+    }
+    toast('Payment link sent ✅','success');
+    setTimeout(() => { closeModal('plan-modal'); loadPlanRequests(); }, 2200);
+  } catch(e) {
+    res.style.cssText = 'display:block;background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.3);padding:10px 14px;border-radius:8px;font-size:0.83rem;margin-bottom:12px';
+    res.textContent = e.error || 'Failed to send payment link';
+  }
+}
+
+async function markUpgradeComplete(reqId) {
+  if (!confirm('Mark this plan upgrade as completed? This will update the owner plan in the database.')) return;
+  try {
+    await api('/admin/plan-change-requests/' + reqId + '/complete', { method:'PATCH' });
+    toast('Plan upgrade marked complete ✅','success');
+    loadPlanRequests();
+  } catch(e) { toast(e.error||'Failed','error'); }
+}
+
+async function dismissPlanReq(reqId) {
+  if (!confirm('Dismiss this request? It will be removed from the list.')) return;
+  try {
+    await api('/admin/plan-change-requests/' + reqId, { method:'DELETE' });
+    toast('Request dismissed','info');
+    loadPlanRequests();
+  } catch(e) { toast(e.error||'Failed','error'); }
+}
 // ─── AUTO-LOGIN FROM SESSION ──────────────────────────────
 (function(){
   const t = sessionStorage.getItem('evntly_admin_token');
