@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>EVNTLY — Complete Payment</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<!-- Razorpay Checkout SDK -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--gold:#c8a96e;--dark:#1a1a1a;--brick:#8b3a2a;--sage:#4a5e4f;--success:#22c55e}
@@ -15,15 +17,11 @@ body{font-family:'DM Sans',sans-serif;background:#0f0f0f;color:#e8e8e8;min-heigh
 .logo span{color:#fff}
 .logo-sub{font-size:0.72rem;color:#666;letter-spacing:2px;text-transform:uppercase;margin-top:4px}
 .card-body{padding:32px}
-
-/* States */
 .state{display:none;text-align:center}
 .state.active{display:block}
 .state-icon{font-size:3rem;margin-bottom:16px}
 .state-title{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:#fff;margin-bottom:8px}
 .state-msg{font-size:0.88rem;color:#888;line-height:1.6;margin-bottom:24px}
-
-/* Plan details box */
 .plan-box{background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:16px 18px;margin-bottom:24px;text-align:left}
 .plan-box-label{font-size:0.67rem;color:var(--gold);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px}
 .plan-box-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1f1f1f;font-size:0.85rem}
@@ -31,34 +29,13 @@ body{font-family:'DM Sans',sans-serif;background:#0f0f0f;color:#e8e8e8;min-heigh
 .plan-box-key{color:#666}
 .plan-box-val{font-weight:600;color:#ccc}
 .plan-box-val.gold{color:var(--gold);font-size:1.1rem;font-weight:800}
-
-/* Payment methods */
-.pm-label{font-size:0.7rem;color:#666;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;text-align:left}
-.pm-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:20px}
-.pm-btn{background:#111;border:1.5px solid #2a2a2a;border-radius:8px;padding:12px;cursor:pointer;text-align:center;transition:all .18s;color:#aaa;font-size:0.82rem;font-weight:600}
-.pm-btn:hover{border-color:#444;color:#fff}
-.pm-btn.selected{border-color:var(--gold);background:rgba(200,169,110,0.06);color:var(--gold)}
-.pm-btn .pm-icon{font-size:1.3rem;margin-bottom:4px}
-
-/* Inputs */
-.field{margin-bottom:14px;text-align:left}
-.field label{display:block;font-size:0.72rem;color:#666;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px}
-.field input{width:100%;background:#111;border:1px solid #2a2a2a;border-radius:7px;padding:11px 14px;color:#fff;font-size:0.88rem;outline:none;transition:border .2s;font-family:inherit}
-.field input:focus{border-color:var(--gold)}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-
-/* Buttons */
+.notice{background:rgba(200,169,110,0.06);border:1px solid rgba(200,169,110,0.2);border-radius:7px;padding:10px 14px;font-size:0.78rem;color:#888;margin-bottom:20px;text-align:left}
+.notice strong{color:var(--gold)}
 .btn-pay{width:100%;background:var(--gold);color:#1a1a1a;border:none;border-radius:8px;padding:14px;font-size:0.92rem;font-weight:700;cursor:pointer;letter-spacing:0.3px;transition:opacity .2s;margin-top:4px}
 .btn-pay:hover{opacity:0.9}
 .btn-pay:disabled{opacity:0.4;cursor:not-allowed}
 .btn-back{display:block;width:100%;background:transparent;border:1px solid #2a2a2a;border-radius:8px;padding:12px;color:#666;font-size:0.85rem;cursor:pointer;margin-top:10px;text-align:center;text-decoration:none;transition:border .2s}
 .btn-back:hover{border-color:#444;color:#aaa}
-
-/* Notice */
-.notice{background:rgba(200,169,110,0.06);border:1px solid rgba(200,169,110,0.2);border-radius:7px;padding:10px 14px;font-size:0.78rem;color:#888;margin-bottom:20px;text-align:left}
-.notice strong{color:var(--gold)}
-
-/* Success / Error */
 .success-icon{font-size:3.5rem;margin-bottom:14px}
 .error-x{width:60px;height:60px;background:rgba(239,68,68,0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.8rem}
 </style>
@@ -89,24 +66,16 @@ body{font-family:'DM Sans',sans-serif;background:#0f0f0f;color:#e8e8e8;min-heigh
     <!-- PAYMENT FORM -->
     <div class="state" id="state-form">
       <div class="plan-box" id="plan-details"></div>
-      <div class="notice">🔒 <strong>Secure demo payment.</strong> No real transaction will occur.</div>
-      <div class="pm-label">Select Payment Method</div>
-      <div class="pm-grid">
-        <div class="pm-btn" onclick="selectMethod(this,'upi')"><div class="pm-icon">📱</div>UPI</div>
-        <div class="pm-btn" onclick="selectMethod(this,'card')"><div class="pm-icon">💳</div>Card</div>
-        <div class="pm-btn" onclick="selectMethod(this,'netbanking')"><div class="pm-icon">🏦</div>Net Banking</div>
-        <div class="pm-btn" onclick="selectMethod(this,'wallet')"><div class="pm-icon">👛</div>Wallet</div>
-      </div>
-      <div id="method-fields"></div>
-      <button class="btn-pay" id="pay-btn" disabled onclick="processPayment()">Select a payment method</button>
+      <div class="notice">🔒 <strong>Secured by Razorpay.</strong> Your payment details are encrypted and never stored on our servers.</div>
+      <button class="btn-pay" id="pay-btn" onclick="openRazorpay()">Pay Now via Razorpay →</button>
       <a href="/" class="btn-back">← Back to EVNTLY</a>
     </div>
 
     <!-- PROCESSING -->
     <div class="state" id="state-processing">
       <div class="state-icon">⏳</div>
-      <div class="state-title">Processing Payment…</div>
-      <div class="state-msg">Please wait while we confirm your payment.</div>
+      <div class="state-title">Verifying Payment…</div>
+      <div class="state-msg">Please wait while we confirm your payment with Razorpay.</div>
     </div>
 
     <!-- SUCCESS -->
@@ -121,19 +90,25 @@ body{font-family:'DM Sans',sans-serif;background:#0f0f0f;color:#e8e8e8;min-heigh
 </div>
 
 <script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
 const _host = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? 'http://localhost:5000' : location.protocol + '//' + location.hostname + ':5000';
+  ? 'http://localhost:5000'
+  : location.protocol + '//' + location.hostname + ':5000';
+
+// !! REPLACE with your actual Razorpay Key ID (test or live) !!
+// Never put the Key SECRET here — only KEY_ID belongs in frontend code.
+const RAZORPAY_KEY_ID = 'rzp_test_SctkijsoF2o09x';
 
 // Parse URL params
 const params   = new URLSearchParams(location.search);
-const appId    = params.get('appId');    // new owner activation
+const appId    = params.get('appId');    // owner activation
 const pcrId    = params.get('pcrId');    // plan upgrade
-const planName = params.get('plan')  || '';
+const planName = params.get('plan')   || '';
 const amount   = params.get('amount') || '0';
 const email    = params.get('email')  || '';
+const token    = params.get('token')  || '';   // HMAC token for security
 
-let selectedPayMethod = null;
-
+// ─── STATE ───────────────────────────────────────────────────────────────────
 function setState(id) {
   document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
   document.getElementById('state-' + id).classList.add('active');
@@ -143,15 +118,19 @@ function fmt(n) {
   return '₹' + Number(n).toLocaleString('en-IN');
 }
 
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
 async function init() {
-  // Must have either appId or pcrId
   if (!appId && !pcrId) { setState('invalid'); return; }
 
-  // Set subtitle
   document.getElementById('page-subtitle').textContent =
     pcrId ? 'Plan Upgrade Payment' : 'Venue Owner Activation';
 
-  // Build plan details box
   const detailsEl = document.getElementById('plan-details');
   detailsEl.innerHTML =
     '<div class="plan-box-label">' + (pcrId ? 'Plan Upgrade Details' : 'Activation Details') + '</div>'
@@ -162,93 +141,116 @@ async function init() {
   setState('form');
 }
 
-function escHtml(s) {
-  const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML;
-}
-
-function selectMethod(btn, method) {
-  document.querySelectorAll('.pm-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-  selectedPayMethod = method;
-  const fields = document.getElementById('method-fields');
-  const payBtn  = document.getElementById('pay-btn');
-
-  if (method === 'upi') {
-    fields.innerHTML =
-      '<div class="field"><label>UPI ID</label>'
-      + '<input type="text" id="upi-id" placeholder="yourname@upi" oninput="updatePayBtn()" /></div>';
-  } else if (method === 'card') {
-    fields.innerHTML =
-      '<div class="field"><label>Card Number</label>'
-      + '<input type="text" id="card-num" placeholder="4242 4242 4242 4242" maxlength="19" oninput="this.value=this.value.replace(/[^0-9 ]/g,\'\');updatePayBtn()" /></div>'
-      + '<div class="field-row">'
-      + '<div class="field"><label>Expiry</label><input type="text" placeholder="MM/YY" maxlength="5" oninput="updatePayBtn()" /></div>'
-      + '<div class="field"><label>CVV</label><input type="text" placeholder="123" maxlength="3" oninput="updatePayBtn()" /></div>'
-      + '</div>'
-      + '<div class="field"><label>Name on Card</label><input type="text" id="card-name" placeholder="Your Name" oninput="updatePayBtn()" /></div>';
-  } else {
-    fields.innerHTML =
-      '<div style="padding:12px 0;font-size:0.84rem;color:#888;text-align:center">You will be redirected to your '
-      + (method === 'netbanking' ? 'bank' : 'wallet') + ' to complete payment.</div>';
-    payBtn.disabled = false;
-    payBtn.textContent = 'Pay ' + fmt(amount) + ' →';
-    return;
-  }
-  updatePayBtn();
-}
-
-function updatePayBtn() {
+// ─── OPEN RAZORPAY CHECKOUT ──────────────────────────────────────────────────
+async function openRazorpay() {
   const payBtn = document.getElementById('pay-btn');
-  let ready = false;
-  if (selectedPayMethod === 'upi') {
-    ready = !!document.getElementById('upi-id')?.value.trim();
-  } else if (selectedPayMethod === 'card') {
-    const num  = (document.getElementById('card-num')?.value || '').replace(/\s/g,'');
-    const name = document.getElementById('card-name')?.value.trim();
-    ready = num.length >= 16 && name.length > 0;
-  }
-  payBtn.disabled = !ready;
-  payBtn.textContent = ready ? ('Pay ' + fmt(amount) + ' →') : 'Complete the fields above';
-}
+  payBtn.disabled = true;
+  payBtn.textContent = 'Opening Razorpay…';
 
-async function processPayment() {
-  setState('processing');
-  // Simulate payment processing delay
-  await new Promise(r => setTimeout(r, 2000));
-  const payRef = 'TXN_' + Date.now();
+  // Step 1: Create a Razorpay order on the backend
+  let orderData;
   try {
-    let endpoint, body;
-    if (pcrId) {
-      // Plan upgrade payment
-      endpoint = _host + '/api/plan-change-requests/' + pcrId + '/confirm-payment';
-    } else {
-      // New owner activation
-      endpoint = _host + '/api/owner-applications/' + appId + '/confirm-payment';
-    }
+    const entityId = appId || pcrId;
+    const endpoint = appId
+      ? `${_host}/api/admin/owner-applications/${entityId}/create-razorpay-order`
+      : `${_host}/api/plan-change-requests/${entityId}/create-razorpay-order`;
+
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentRef: payRef }),
+      body: JSON.stringify({ token }),  // server verifies this HMAC token
     });
-    const data = await res.json();
-    if (!res.ok) throw data;
+    orderData = await res.json();
+    if (!res.ok) throw orderData;
+  } catch (e) {
+    payBtn.disabled = false;
+    payBtn.textContent = 'Pay Now via Razorpay →';
+    alert(e.error || 'Could not initiate payment. Please try again or contact support.');
+    return;
+  }
 
-    // Show success with expiry info for plan upgrades
-    document.getElementById('success-title').textContent =
-      pcrId ? 'Plan Upgraded Successfully!' : 'Account Activated!';
-    var expiryNote = '';
-    if (pcrId && data.planExpiresAt) {
-      var exp = new Date(data.planExpiresAt).toLocaleDateString('en-IN', {day:'2-digit', month:'long', year:'numeric'});
-      expiryNote = '<br><span style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:4px 10px;font-size:0.8rem;color:#22c55e;display:inline-block;margin-top:8px">✅ Valid until ' + exp + '</span>';
-    }
-    document.getElementById('success-msg').innerHTML = pcrId
-      ? 'Your <strong>' + escHtml(planName) + '</strong> plan is now active. Your dashboard has been updated.' + expiryNote + '<br><br><small style="color:#555">Payment Ref: ' + payRef + '</small>'
-      : 'Your EVNTLY venue owner account is now fully activated. Check your email for login details.<br><br><small style="color:#555">Payment Ref: ' + payRef + '</small>';
-    setState('success');
-  } catch(e) {
-    document.getElementById('success-title').textContent = 'Payment Error';
-    document.getElementById('success-msg').textContent = e.error || e.message || 'Something went wrong. Please contact support.';
-    setState('success');
+  // Step 2: Open Razorpay checkout
+  const options = {
+    key:         RAZORPAY_KEY_ID,
+    amount:      orderData.amount,    // in paise, from backend
+    currency:    'INR',
+    name:        'EVNTLY',
+    description: `${planName} Plan Activation`,
+    order_id:    orderData.orderId,
+    prefill: {
+      email: email,
+    },
+    theme: {
+      color: '#C8A96E',
+    },
+    modal: {
+      ondismiss: function () {
+        payBtn.disabled = false;
+        payBtn.textContent = 'Pay Now via Razorpay →';
+      },
+    },
+    handler: async function (response) {
+      // Step 3: Verify payment on backend
+      setState('processing');
+      try {
+        const entityId = appId || pcrId;
+        const endpoint = appId
+          ? `${_host}/api/owner-applications/${entityId}/confirm-payment`
+          : `${_host}/api/plan-change-requests/${entityId}/confirm-payment`;
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id:   response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature:  response.razorpay_signature,
+            token: token,  // server re-verifies
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw data;
+
+        document.getElementById('success-title').textContent =
+          pcrId ? 'Plan Upgraded Successfully!' : 'Account Activated!';
+
+        let expiryNote = '';
+        if (pcrId && data.planExpiresAt) {
+          const exp = new Date(data.planExpiresAt).toLocaleDateString('en-IN', {
+            day: '2-digit', month: 'long', year: 'numeric',
+          });
+          expiryNote = `<br><span style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:4px 10px;font-size:0.8rem;color:#22c55e;display:inline-block;margin-top:8px">✅ Valid until ${exp}</span>`;
+        }
+
+        document.getElementById('success-msg').innerHTML = pcrId
+          ? `Your <strong>${escHtml(planName)}</strong> plan is now active.${expiryNote}<br><br><small style="color:#555">Payment ID: ${response.razorpay_payment_id}</small>`
+          : `Your EVNTLY venue owner account is now fully activated. Check your email for login details.<br><br><small style="color:#555">Payment ID: ${response.razorpay_payment_id}</small>`;
+
+        setState('success');
+
+      } catch (e) {
+        // Payment went through but verification pending — don't hide it
+        document.getElementById('success-title').textContent = 'Payment Received';
+        document.getElementById('success-msg').innerHTML =
+          `Your payment was processed by Razorpay but we need to verify it. Please contact support with your Payment ID: <strong>${response.razorpay_payment_id}</strong>`;
+        setState('success');
+      }
+    },
+  };
+
+  try {
+    const rzp = new window.Razorpay(options);
+    rzp.on('payment.failed', function (response) {
+      payBtn.disabled = false;
+      payBtn.textContent = 'Pay Now via Razorpay →';
+      setState('form');
+      alert(`Payment failed: ${response.error.description || 'Please try a different payment method.'}`);
+    });
+    rzp.open();
+  } catch (e) {
+    payBtn.disabled = false;
+    payBtn.textContent = 'Pay Now via Razorpay →';
+    alert('Could not open Razorpay. Please check your internet connection.');
   }
 }
 
