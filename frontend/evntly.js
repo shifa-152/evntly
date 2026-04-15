@@ -1452,9 +1452,33 @@ function updateAdvancePayBtn(remaining) {
 //   3. On success: POST /api/payments/verify → backend verifies HMAC + saves to DB
 //   4. On failure: show error toast
 async function processPayment() {
-  const btn      = document.getElementById('pay-btn');
-  const b        = pendingPaymentBooking;
+  // ── Ensure Razorpay script is loaded before anything else ──
+  if (!window.Razorpay) {
+    await new Promise((resolve, reject) => {
+      const existing = document.querySelector(
+        'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+      );
+      if (existing) {
+        existing.onload = resolve;
+        existing.onerror = reject;
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Razorpay script failed to load'));
+      document.body.appendChild(s);
+    }).catch(() => {
+      toast('Could not load Razorpay. Check your internet connection.', 'error');
+      return;
+    });
+  }
+
+  // ── NOW the rest of your original code starts here ──
+  const btn       = document.getElementById('pay-btn');
+  const b         = pendingPaymentBooking;
   const remaining = (b.total || 0) - (b.paidAmount || 0);
+
 
   // ── Cash on Visit — no Razorpay needed ──────────────────────────────────────
   if (selectedPaymentType === 'cash') {
