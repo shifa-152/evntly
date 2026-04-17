@@ -827,6 +827,7 @@ app.post('/api/payments/create-order', authMiddleware, async (req, res) => {
     });
 
     res.json({
+      key:        process.env.RAZORPAY_KEY_ID,  // ← MUST be included
       orderId:     order.id,
       amount:      order.amount,
       amountRupees: amountToPay,
