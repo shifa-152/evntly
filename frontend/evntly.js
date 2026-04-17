@@ -1479,9 +1479,13 @@ async function processPayment() {
   const b         = pendingPaymentBooking;
   const remaining = (b.total || 0) - (b.paidAmount || 0);
 
+<<<<<<< HEAD
   // ... rest of your code unchanged
 
   
+=======
+
+>>>>>>> 33055acf80659a9a8a14c9a6b2df2d5d6b5b7408
   // ── Cash on Visit — no Razorpay needed ──────────────────────────────────────
   if (selectedPaymentType === 'cash') {
     btn.disabled = true;
