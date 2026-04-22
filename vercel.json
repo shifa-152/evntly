@@ -1,6 +1,1 @@
-{
-  "version": 2,
-  "routes": [
-    { "src": "/(.*)", "dest": "index.js" }
-  ]
-}
+{ "version": 2, "routes": [{ "src": "/(.*)", "dest": "backend/server.js" }] }
