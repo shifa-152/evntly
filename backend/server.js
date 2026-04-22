@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  EVNTLY — Express + MongoDB Backend  (server.js)
-//  Install: npm install express mongoose cors multer sharp bcryptjs jsonwebtoken dotenv
+//  Install: npm install express mongoose cors multer sharp bcryptjs jsonwebtoken dotenv cloudinary multer-storage-cloudinary
 //  Run: node server.js
 // ─────────────────────────────────────────────────────────────────────────────
 const express    = require('express');
@@ -12,10 +12,17 @@ const fs         = require('fs');
 const crypto     = require('crypto');
 const jwt        = require('jsonwebtoken');
 const bcrypt     = require('bcryptjs');
-const sharp      = require('sharp');
 const nodemailer = require('nodemailer');
+const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 console.log("Key ID:", process.env.RAZORPAY_KEY_ID);
+
+// ─── CLOUDINARY CONFIG ────────────────────────────────────────────────────────
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const app = express();
 const PORT       = process.env.PORT || 5000;
@@ -97,13 +104,10 @@ app.use(cors({
 app.options('*', cors());
 
 // ─── STATIC FILES ─────────────────────────────────────────────────────────────
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-app.use('/uploads', express.static(UPLOADS_DIR));
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 app.use(express.static(FRONTEND_DIR, { extensions: ['html'] }));
 
-// ─── MULTER ───────────────────────────────────────────────────────────────────
+// ─── MULTER (memory storage — files go to Cloudinary) ─────────────────────────
 const upload = multer({
   storage: multer.memoryStorage(),
   limits:  { fileSize: 10 * 1024 * 1024 },
@@ -112,6 +116,64 @@ const upload = multer({
     ok.includes(file.mimetype) ? cb(null, true) : cb(new Error('Only JPG, PNG, WEBP, PDF allowed'));
   },
 });
+
+// ─── CLOUDINARY HELPERS ───────────────────────────────────────────────────────
+async function uploadToCloudinary(buffer, mimetype, folder = 'evntly') {
+  return new Promise((resolve, reject) => {
+    const resourceType = mimetype === 'application/pdf' ? 'raw' : 'image';
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: resourceType,
+        transformation: resourceType === 'image'
+          ? [{ width: 2400, height: 1800, crop: 'limit' }, { quality: 'auto:good', fetch_format: 'webp' }]
+          : [],
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result.secure_url);
+      }
+    );
+    uploadStream.end(buffer);
+  });
+}
+
+async function deleteFromCloudinary(url) {
+  if (!url || !url.includes('cloudinary.com')) return;
+  try {
+    // Extract public_id from the URL
+    const parts = url.split('/');
+    const uploadIndex = parts.indexOf('upload');
+    if (uploadIndex === -1) return;
+    // Skip version segment if present (v1234567890)
+    let startIndex = uploadIndex + 1;
+    if (parts[startIndex] && parts[startIndex].startsWith('v')) startIndex++;
+    const publicIdWithExt = parts.slice(startIndex).join('/');
+    const publicId = publicIdWithExt.replace(/\.[^/.]+$/, ''); // remove extension
+    await cloudinary.uploader.destroy(publicId);
+  } catch(e) {
+    console.error('Cloudinary delete error:', e.message);
+  }
+}
+
+// Keep backward compat alias
+async function saveImage(buffer, mimetype = 'image/jpeg') {
+  return uploadToCloudinary(buffer, mimetype, 'evntly/venues');
+}
+
+function deleteImageFile(urlOrFilename) {
+  if (!urlOrFilename) return;
+  // If it's a Cloudinary URL, delete from Cloudinary
+  if (urlOrFilename.startsWith('http')) {
+    deleteFromCloudinary(urlOrFilename).catch(() => {});
+    return;
+  }
+  // Legacy: local file (ignore on Vercel, might not exist)
+  try {
+    const fp = path.join(__dirname, 'uploads', urlOrFilename);
+    if (fs.existsSync(fp)) fs.unlinkSync(fp);
+  } catch(e) {}
+}
 
 // ─── MONGOOSE CONNECT ─────────────────────────────────────────────────────────
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/evntly')
@@ -295,21 +357,6 @@ function genRef() {
   return 'EVT' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2,5).toUpperCase();
 }
 
-async function saveImage(buffer) {
-  const filename = Date.now() + '_' + Math.random().toString(36).slice(2) + '.webp';
-  await sharp(buffer)
-    .resize({ width: 2400, height: 1800, fit: 'inside', withoutEnlargement: true })
-    .webp({ quality: 95 })
-    .toFile(path.join(UPLOADS_DIR, filename));
-  return filename;
-}
-
-function deleteImageFile(filename) {
-  if (!filename) return;
-  const fp = path.join(UPLOADS_DIR, filename);
-  if (fs.existsSync(fp)) fs.unlinkSync(fp);
-}
-
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 function authMiddleware(req, res, next) {
   const token = req.headers['authorization']?.split(' ')[1];
@@ -438,14 +485,14 @@ app.post('/api/venues', ownerMiddleware, requirePlanPaid, upload.fields([
     if (pp < 0)                errors.push('Plate price must be ≥ 0');
     if (errors.length) return res.status(400).json({ errors });
 
-    let coverImageFile = '';
-    let imageFiles     = [];
+    let coverImageUrl = '';
+    let imageUrls     = [];
     if (req.files?.coverImage?.[0]) {
-      coverImageFile = await saveImage(req.files.coverImage[0].buffer);
+      coverImageUrl = await uploadToCloudinary(req.files.coverImage[0].buffer, req.files.coverImage[0].mimetype, 'evntly/venues');
     }
     if (req.files?.images) {
       for (const f of req.files.images) {
-        imageFiles.push(await saveImage(f.buffer));
+        imageUrls.push(await uploadToCloudinary(f.buffer, f.mimetype, 'evntly/venues'));
       }
     }
 
@@ -468,8 +515,8 @@ app.post('/api/venues', ownerMiddleware, requirePlanPaid, upload.fields([
       venuePhone:req.body.venuePhone|| '',
       platePrice: pp,
       cateringHotels: cateringHotels ? JSON.parse(cateringHotels) : [],
-      coverImage: coverImageFile,
-      images:    imageFiles,
+      coverImage: coverImageUrl,
+      images:    imageUrls,
       slots:     slots     ? JSON.parse(slots)     : [],
       openTime:  openTime  || '',
       closeTime: closeTime || '',
@@ -510,18 +557,18 @@ app.put('/api/venues/:id', ownerMiddleware, upload.fields([
 
     if (removeImages) {
       const toRemove = JSON.parse(removeImages);
-      toRemove.forEach(fn => deleteImageFile(fn));
+      toRemove.forEach(url => deleteImageFile(url));
       venue.images = venue.images.filter(img => !toRemove.includes(img));
     }
 
     if (req.files?.coverImage?.[0]) {
       deleteImageFile(venue.coverImage);
-      venue.coverImage = await saveImage(req.files.coverImage[0].buffer);
+      venue.coverImage = await uploadToCloudinary(req.files.coverImage[0].buffer, req.files.coverImage[0].mimetype, 'evntly/venues');
     }
 
     if (req.files?.images) {
       for (const f of req.files.images) {
-        venue.images.push(await saveImage(f.buffer));
+        venue.images.push(await uploadToCloudinary(f.buffer, f.mimetype, 'evntly/venues'));
       }
     }
 
@@ -766,7 +813,6 @@ function verifyWebhookSignature(rawBody, signature) {
   return expected === signature;
 }
 
-// ─── HELPER: HMAC token for payment links ────────────────────────────────────
 function scriptPaymentToken(entityId) {
   return crypto
     .createHmac('sha256', process.env.JWT_SECRET)
@@ -782,61 +828,33 @@ function verifyPaymentToken(entityId, token) {
 app.post('/api/payments/create-order', authMiddleware, async (req, res) => {
   try {
     const { bookingId, paymentType, advanceAmount } = req.body;
-
     if (!bookingId) return res.status(400).json({ error: 'bookingId is required' });
-
     const booking = await Booking.findById(bookingId);
-    if (!booking)
-      return res.status(404).json({ error: 'Booking not found' });
-
-    if (String(booking.userId) !== String(req.user.id))
-      return res.status(403).json({ error: 'Not your booking' });
-
-    if (booking.status !== 'confirmed')
-      return res.status(400).json({ error: 'Booking must be confirmed before payment' });
-
-    if (booking.paymentStatus === 'fully_paid')
-      return res.status(400).json({ error: 'This booking is already fully paid' });
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (String(booking.userId) !== String(req.user.id)) return res.status(403).json({ error: 'Not your booking' });
+    if (booking.status !== 'confirmed') return res.status(400).json({ error: 'Booking must be confirmed before payment' });
+    if (booking.paymentStatus === 'fully_paid') return res.status(400).json({ error: 'This booking is already fully paid' });
 
     const alreadyPaid = booking.paidAmount || 0;
     const remaining   = booking.total - alreadyPaid;
-
     let amountToPay;
     if (paymentType === 'advance') {
       const adv = parseFloat(advanceAmount || 0);
-      if (adv <= 0 || adv >= remaining)
-        return res.status(400).json({ error: 'Advance must be between ₹1 and remaining balance' });
+      if (adv <= 0 || adv >= remaining) return res.status(400).json({ error: 'Advance must be between ₹1 and remaining balance' });
       amountToPay = adv;
     } else {
       amountToPay = remaining;
     }
-
-    if (amountToPay < 1)
-      return res.status(400).json({ error: 'Payment amount must be at least ₹1' });
+    if (amountToPay < 1) return res.status(400).json({ error: 'Payment amount must be at least ₹1' });
 
     const order = await razorpay.orders.create({
       amount:   Math.round(amountToPay * 100),
       currency: 'INR',
       receipt:  booking.ref || booking._id.toString(),
-      notes: {
-        bookingId:    booking._id.toString(),
-        venueName:    booking.venueName  || '',
-        customerName: booking.userName   || '',
-        paymentType:  paymentType || 'full',
-      },
+      notes: { bookingId: booking._id.toString(), venueName: booking.venueName || '', customerName: booking.userName || '', paymentType: paymentType || 'full' },
     });
 
-    res.json({
-      key:        process.env.RAZORPAY_KEY_ID,  // ← MUST be included
-      orderId:     order.id,
-      amount:      order.amount,
-      amountRupees: amountToPay,
-      currency:    order.currency,
-      bookingRef:  booking.ref,
-      venueName:   booking.venueName,
-      paymentType: paymentType || 'full',
-    });
-
+    res.json({ key: process.env.RAZORPAY_KEY_ID, orderId: order.id, amount: order.amount, amountRupees: amountToPay, currency: order.currency, bookingRef: booking.ref, venueName: booking.venueName, paymentType: paymentType || 'full' });
   } catch (e) {
     console.error('Razorpay create-order error:', e);
     res.status(500).json({ error: e.message || 'Failed to create payment order' });
@@ -845,43 +863,25 @@ app.post('/api/payments/create-order', authMiddleware, async (req, res) => {
 
 app.post('/api/payments/verify', authMiddleware, async (req, res) => {
   try {
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      bookingId,
-      paymentType,
-      advanceAmount,
-    } = req.body;
-
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingId, paymentType, advanceAmount } = req.body;
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !bookingId)
       return res.status(400).json({ error: 'Missing payment verification fields' });
-
-    const isValid = verifyRazorpaySignature(
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature
-    );
-    if (!isValid)
-      return res.status(400).json({ error: 'Payment verification failed — invalid signature' });
+    const isValid = verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
+    if (!isValid) return res.status(400).json({ error: 'Payment verification failed — invalid signature' });
 
     const booking = await Booking.findById(bookingId);
-    if (!booking)
-      return res.status(404).json({ error: 'Booking not found' });
-
-    if (String(booking.userId) !== String(req.user.id))
-      return res.status(403).json({ error: 'Not your booking' });
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (String(booking.userId) !== String(req.user.id)) return res.status(403).json({ error: 'Not your booking' });
 
     let paidAmountRupees = 0;
     try {
       const payment = await razorpay.payments.fetch(razorpay_payment_id);
       paidAmountRupees = payment.amount / 100;
     } catch (e) {
-      console.error('Could not fetch payment details from Razorpay:', e.message);
       paidAmountRupees = parseFloat(advanceAmount || booking.total);
     }
 
-    const alreadyPaid = booking.paidAmount || 0;
+    const alreadyPaid  = booking.paidAmount || 0;
     const newPaidTotal = alreadyPaid + paidAmountRupees;
     const isFullyPaid  = newPaidTotal >= booking.total - 0.01;
 
@@ -899,7 +899,6 @@ app.post('/api/payments/verify', authMiddleware, async (req, res) => {
       booking.paymentStatus = 'fully_paid';
       booking.status        = 'paid';
     }
-
     await booking.save();
 
     const user = await User.findById(req.user.id);
@@ -909,8 +908,7 @@ app.post('/api/payments/verify', authMiddleware, async (req, res) => {
         subject: `Payment ${isFullyPaid ? 'Confirmed' : 'Advance Received'} — ${booking.venueName}`,
         html: emailHtml({
           title: isFullyPaid ? 'Payment Confirmed!' : 'Advance Payment Received!',
-          body: `<p>Hi <strong>${user.name}</strong>,</p>
-                 <p>Your payment for <strong>${booking.venueName}</strong> has been received.</p>
+          body: `<p>Hi <strong>${user.name}</strong>,</p><p>Your payment for <strong>${booking.venueName}</strong> has been received.</p>
                  <table style="background:#f9f5ee;border-radius:8px;padding:16px;width:100%;margin:16px 0;border-collapse:collapse">
                    <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Booking Ref</td><td style="font-weight:700">${booking.ref}</td></tr>
                    <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Venue</td><td style="font-weight:700">${booking.venueName}</td></tr>
@@ -920,116 +918,73 @@ app.post('/api/payments/verify', authMiddleware, async (req, res) => {
                    <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Payment ID</td><td style="font-family:monospace;font-size:0.82rem;color:#555">${razorpay_payment_id}</td></tr>
                  </table>
                  <p>${isFullyPaid ? 'Your booking is fully confirmed!' : 'Bring the remaining balance on the day of your event.'}</p>`,
-          btnText: 'View Booking →',
-          btnUrl: CLIENT_URL,
+          btnText: 'View Booking →', btnUrl: CLIENT_URL,
           footer: `Keep this as your receipt. Payment ID: ${razorpay_payment_id}`,
         }),
       });
     }
-
-    res.json({
-      ok: true,
-      booking,
-      paidAmount: paidAmountRupees,
-      paymentId:  razorpay_payment_id,
-    });
-
+    res.json({ ok: true, booking, paidAmount: paidAmountRupees, paymentId: razorpay_payment_id });
   } catch (e) {
     console.error('Razorpay verify error:', e);
     res.status(500).json({ error: e.message || 'Payment verification failed' });
   }
 });
 
-app.post(
-  '/api/payments/webhook',
-  express.raw({ type: 'application/json' }),
-  async (req, res) => {
-    try {
-      const signature = req.headers['x-razorpay-signature'];
-      if (!signature) return res.status(400).json({ error: 'Missing signature' });
-
-      if (!verifyWebhookSignature(req.body, signature)) {
-        console.warn('⚠️  Razorpay webhook: invalid signature');
-        return res.status(400).json({ error: 'Invalid webhook signature' });
-      }
-
-      const event = JSON.parse(req.body.toString());
-      console.log('📣 Razorpay webhook event:', event.event);
-
-      if (event.event === 'payment.captured') {
-        const payment = event.payload.payment.entity;
-        const notes   = payment.notes || {};
-        const bookingId = notes.bookingId;
-
-        if (bookingId) {
-          const booking = await Booking.findById(bookingId);
-          if (booking && booking.paymentStatus !== 'fully_paid') {
-            const paidRupees = payment.amount / 100;
-            const newTotal   = (booking.paidAmount || 0) + paidRupees;
-            const isFullyPaid = newTotal >= booking.total - 0.01;
-
-            booking.razorpayPaymentId = payment.id;
-            booking.paidAmount        = newTotal;
-            booking.paymentMethod     = 'razorpay';
-
-            if (isFullyPaid) {
-              booking.paymentStatus = 'fully_paid';
-              booking.status        = 'paid';
-            } else {
-              booking.paymentStatus = 'advance_paid';
-            }
-            await booking.save();
-            console.log(`✅ Webhook: booking ${bookingId} updated via payment.captured`);
-          }
-        }
-      }
-
-      if (event.event === 'payment.failed') {
-        const payment = event.payload.payment.entity;
-        console.warn('❌ Razorpay payment failed:', payment.id, payment.error_description);
-      }
-
-      if (event.event === 'refund.processed') {
-        const payment = event.payload.payment?.entity;
-        const notes   = payment?.notes || {};
-        const bookingId = notes.bookingId;
-
-        if (bookingId) {
-          await Booking.findByIdAndUpdate(bookingId, {
-            paymentStatus: 'refunded',
-            status: 'cancelled',
-          });
-          console.log(`🔄 Webhook: booking ${bookingId} marked refunded`);
-        }
-      }
-
-      res.json({ ok: true });
-
-    } catch (e) {
-      console.error('Razorpay webhook error:', e);
-      res.status(500).json({ error: e.message });
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const signature = req.headers['x-razorpay-signature'];
+    if (!signature) return res.status(400).json({ error: 'Missing signature' });
+    if (!verifyWebhookSignature(req.body, signature)) {
+      console.warn('⚠️  Razorpay webhook: invalid signature');
+      return res.status(400).json({ error: 'Invalid webhook signature' });
     }
+    const event = JSON.parse(req.body.toString());
+    console.log('📣 Razorpay webhook event:', event.event);
+
+    if (event.event === 'payment.captured') {
+      const payment = event.payload.payment.entity;
+      const bookingId = (payment.notes || {}).bookingId;
+      if (bookingId) {
+        const booking = await Booking.findById(bookingId);
+        if (booking && booking.paymentStatus !== 'fully_paid') {
+          const paidRupees = payment.amount / 100;
+          const newTotal   = (booking.paidAmount || 0) + paidRupees;
+          const isFullyPaid = newTotal >= booking.total - 0.01;
+          booking.razorpayPaymentId = payment.id;
+          booking.paidAmount        = newTotal;
+          booking.paymentMethod     = 'razorpay';
+          if (isFullyPaid) { booking.paymentStatus = 'fully_paid'; booking.status = 'paid'; }
+          else booking.paymentStatus = 'advance_paid';
+          await booking.save();
+        }
+      }
+    }
+    if (event.event === 'payment.failed') {
+      console.warn('❌ Razorpay payment failed:', event.payload.payment.entity.id);
+    }
+    if (event.event === 'refund.processed') {
+      const bookingId = (event.payload.payment?.entity?.notes || {}).bookingId;
+      if (bookingId) await Booking.findByIdAndUpdate(bookingId, { paymentStatus: 'refunded', status: 'cancelled' });
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Razorpay webhook error:', e);
+    res.status(500).json({ error: e.message });
   }
-);
+});
 
 app.post('/api/payments/refund/:bookingId', ownerMiddleware, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.bookingId);
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
-
-    if (!booking.razorpayPaymentId)
-      return res.status(400).json({ error: 'No Razorpay payment found for this booking' });
-
-    if (booking.paymentStatus === 'refunded')
-      return res.status(400).json({ error: 'Already refunded' });
+    if (!booking.razorpayPaymentId) return res.status(400).json({ error: 'No Razorpay payment found for this booking' });
+    if (booking.paymentStatus === 'refunded') return res.status(400).json({ error: 'Already refunded' });
 
     const venue = await Venue.findOne({ _id: booking.venueId, ownerId: req.user.id });
-    if (!venue && req.user.role !== 'superadmin')
-      return res.status(403).json({ error: 'Not your booking' });
+    if (!venue && req.user.role !== 'superadmin') return res.status(403).json({ error: 'Not your booking' });
 
     const refundAmount = Math.round((booking.paidAmount || 0) * 100);
-    if (refundAmount < 100)
-      return res.status(400).json({ error: 'Refund amount too small' });
+    if (refundAmount < 100) return res.status(400).json({ error: 'Refund amount too small' });
 
     const refund = await razorpay.payments.refund(booking.razorpayPaymentId, {
       amount: refundAmount,
@@ -1048,83 +1003,46 @@ app.post('/api/payments/refund/:bookingId', ownerMiddleware, async (req, res) =>
         html: emailHtml({
           title: 'Refund Processed',
           body: `<p>Hi <strong>${customer.name}</strong>,</p>
-                 <p>Your refund of <strong>₹${(refundAmount / 100).toLocaleString('en-IN')}</strong> for <strong>${booking.venueName}</strong> (Booking Ref: ${booking.ref}) has been processed.</p>
-                 <p>The amount will be credited to your original payment method within 5–7 business days.</p>`,
+                 <p>Your refund of <strong>₹${(refundAmount / 100).toLocaleString('en-IN')}</strong> for <strong>${booking.venueName}</strong> (Ref: ${booking.ref}) has been processed.</p>
+                 <p>Amount will be credited within 5–7 business days.</p>`,
           footer: `Refund ID: ${refund.id}`,
         }),
       });
     }
-
     res.json({ ok: true, refundId: refund.id, amount: refundAmount / 100 });
-
   } catch (e) {
     console.error('Razorpay refund error:', e);
     res.status(500).json({ error: e.message || 'Refund failed' });
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  POST /api/admin/owner-applications/:id/create-razorpay-order
-// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/admin/owner-applications/:id/create-razorpay-order', async (req, res) => {
   try {
     const { token } = req.body;
-
-    if (!token || !verifyPaymentToken(req.params.id, token))
-      return res.status(403).json({ error: 'Invalid or expired payment link' });
-
+    if (!token || !verifyPaymentToken(req.params.id, token)) return res.status(403).json({ error: 'Invalid or expired payment link' });
     const application = await OwnerApplication.findById(req.params.id);
     if (!application) return res.status(404).json({ error: 'Application not found' });
-    if (application.planPaid)
-      return res.status(400).json({ error: 'This application has already been paid' });
-    if (application.status !== 'approved')
-      return res.status(400).json({ error: 'Application has not been approved yet' });
-
+    if (application.planPaid) return res.status(400).json({ error: 'This application has already been paid' });
+    if (application.status !== 'approved') return res.status(400).json({ error: 'Application has not been approved yet' });
     const planDoc = await PlatformPlan.findOne({ key: application.plan || 'basic' });
     const amount  = planDoc ? planDoc.price : 4999;
-
-    const order = await razorpay.orders.create({
-      amount:   Math.round(amount * 100),
-      currency: 'INR',
-      receipt:  application._id.toString(),
-      notes: {
-        applicationId: application._id.toString(),
-        applicantName:  application.name,
-        plan:           application.plan || 'basic',
-        type:           'owner_activation',
-      },
-    });
-
+    const order = await razorpay.orders.create({ amount: Math.round(amount * 100), currency: 'INR', receipt: application._id.toString(), notes: { applicationId: application._id.toString(), applicantName: application.name, plan: application.plan || 'basic', type: 'owner_activation' } });
     res.json({ orderId: order.id, amount: order.amount, currency: order.currency });
-
-  } catch (e) {
-    console.error('create-razorpay-order (owner app) error:', e);
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  POST /api/owner-applications/:id/confirm-payment  (Razorpay verified)
-// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/owner-applications/:id/confirm-payment', async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, token, paymentRef } = req.body;
-
-    // If Razorpay fields are present, do full verification
     if (razorpay_order_id && razorpay_payment_id && razorpay_signature) {
-      if (!token || !verifyPaymentToken(req.params.id, token))
-        return res.status(403).json({ error: 'Invalid payment token' });
-
+      if (!token || !verifyPaymentToken(req.params.id, token)) return res.status(403).json({ error: 'Invalid payment token' });
       const isValid = verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
-      if (!isValid)
-        return res.status(400).json({ error: 'Payment signature verification failed' });
+      if (!isValid) return res.status(400).json({ error: 'Payment signature verification failed' });
     }
-
     const application = await OwnerApplication.findById(req.params.id);
     if (!application) return res.status(404).json({ error: 'Application not found' });
     if (application.planPaid) return res.json({ ok: true, already: true, message: 'Already paid' });
-    if (application.status !== 'approved')
-      return res.status(400).json({ error: 'Application has not been approved yet.' });
+    if (application.status !== 'approved') return res.status(400).json({ error: 'Application has not been approved yet.' });
 
     application.planPaid       = true;
     application.listingEnabled = true;
@@ -1132,215 +1050,112 @@ app.post('/api/owner-applications/:id/confirm-payment', async (req, res) => {
     await application.save();
 
     let user = await User.findOne({ email: application.email });
-    if (!user) {
-      user = await User.create({
-        name:     application.name,
-        email:    application.email,
-        password: application.password,
-        phone:    application.phone,
-        role:     'owner',
-      });
-    }
+    if (!user) user = await User.create({ name: application.name, email: application.email, password: application.password, phone: application.phone, role: 'owner' });
 
     const paidNow = new Date();
     const expiryDate = new Date(paidNow);
     expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-
-    await User.findByIdAndUpdate(user._id, {
-      plan:               application.plan || 'basic',
-      planPaymentStatus:  'paid',
-      planPaidAt:         paidNow,
-      planExpiresAt:      expiryDate,
-      listingEnabled:     true,
-    });
+    await User.findByIdAndUpdate(user._id, { plan: application.plan || 'basic', planPaymentStatus: 'paid', planPaidAt: paidNow, planExpiresAt: expiryDate, listingEnabled: true });
 
     const planDoc = await PlatformPlan.findOne({ key: application.plan || 'basic' });
-
     await sendMail({
       to: application.email,
       subject: `🎉 Welcome to EVNTLY — Your account is now active!`,
       html: emailHtml({
         title: 'Payment Confirmed — Account Activated!',
-        body: `<p>Hi <strong>${application.name}</strong>,</p>
-               <p>Your payment has been received and your EVNTLY venue owner account is now <strong style="color:#22c55e">fully activated</strong>!</p>
+        body: `<p>Hi <strong>${application.name}</strong>,</p><p>Your EVNTLY venue owner account is now <strong style="color:#22c55e">fully activated</strong>!</p>
                <table style="background:#f9f5ee;border-radius:8px;padding:16px;width:100%;margin:16px 0;border-collapse:collapse">
                  <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Login Email</td><td style="font-weight:700;color:#1a1a1a">${application.email}</td></tr>
-                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Password</td><td style="font-weight:700;color:#1a1a1a">The password you set during registration</td></tr>
                  <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Plan</td><td style="font-weight:700;color:#c8a96e">${planDoc?.name || application.plan}</td></tr>
                  <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Payment Ref</td><td style="font-family:monospace;color:#555;font-size:0.82rem">${application.paymentRef}</td></tr>
-               </table>
-               <p>Sign in now to your owner dashboard and start listing your venues!</p>`,
-        btnText: 'Sign In & List Your Venue →',
-        btnUrl: CLIENT_URL,
+               </table>`,
+        btnText: 'Sign In & List Your Venue →', btnUrl: CLIENT_URL,
         footer: 'Keep this email as your payment receipt. Ref: ' + application.paymentRef,
       }),
     });
-
     res.json({ ok: true, message: 'Payment confirmed — login credentials sent to your email' });
-  } catch(e) {
-    console.error('confirm-payment (owner app) error:', e);
-    res.status(500).json({ error: e.message });
-  }
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  POST /api/plan-change-requests/:id/create-razorpay-order
-// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/plan-change-requests/:id/create-razorpay-order', async (req, res) => {
   try {
     const { token } = req.body;
-
-    if (!token || !verifyPaymentToken(req.params.id, token))
-      return res.status(403).json({ error: 'Invalid or expired payment link' });
-
+    if (!token || !verifyPaymentToken(req.params.id, token)) return res.status(403).json({ error: 'Invalid or expired payment link' });
     const pcr = await PlanChangeRequest.findById(req.params.id);
     if (!pcr) return res.status(404).json({ error: 'Plan change request not found' });
-    if (pcr.status === 'completed')
-      return res.status(400).json({ error: 'This plan upgrade has already been paid' });
-
+    if (pcr.status === 'completed') return res.status(400).json({ error: 'This plan upgrade has already been paid' });
     const planDoc = await PlatformPlan.findOne({ key: pcr.requestedPlan }).catch(() => null);
     const amount  = planDoc ? planDoc.price : 0;
-
-    if (amount < 1)
-      return res.status(400).json({ error: 'Invalid plan amount' });
-
-    const order = await razorpay.orders.create({
-      amount:   Math.round(amount * 100),
-      currency: 'INR',
-      receipt:  pcr._id.toString(),
-      notes: {
-        pcrId:    pcr._id.toString(),
-        userId:   pcr.userId.toString(),
-        plan:     pcr.requestedPlan,
-        type:     'plan_upgrade',
-      },
-    });
-
+    if (amount < 1) return res.status(400).json({ error: 'Invalid plan amount' });
+    const order = await razorpay.orders.create({ amount: Math.round(amount * 100), currency: 'INR', receipt: pcr._id.toString(), notes: { pcrId: pcr._id.toString(), userId: pcr.userId.toString(), plan: pcr.requestedPlan, type: 'plan_upgrade' } });
     res.json({ orderId: order.id, amount: order.amount, currency: order.currency });
-
-  } catch (e) {
-    console.error('create-razorpay-order (plan change) error:', e);
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  POST /api/plan-change-requests/:id/confirm-payment
-// ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/plan-change-requests/:id/confirm-payment', async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, token, paymentRef } = req.body;
-
-    // If Razorpay fields present, verify them
     if (razorpay_order_id && razorpay_payment_id && razorpay_signature) {
-      if (!token || !verifyPaymentToken(req.params.id, token))
-        return res.status(403).json({ error: 'Invalid payment token' });
-
+      if (!token || !verifyPaymentToken(req.params.id, token)) return res.status(403).json({ error: 'Invalid payment token' });
       const isValid = verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
-      if (!isValid)
-        return res.status(400).json({ error: 'Payment signature verification failed' });
+      if (!isValid) return res.status(400).json({ error: 'Payment signature verification failed' });
     }
-
     const pcr = await PlanChangeRequest.findById(req.params.id);
     if (!pcr) return res.status(404).json({ error: 'Plan change request not found' });
     if (pcr.status === 'completed') return res.json({ ok: true, already: true });
-
-    pcr.status = 'completed';
-    await pcr.save();
-
+    pcr.status = 'completed'; await pcr.save();
     const ref = razorpay_payment_id || paymentRef || 'TXN_' + Date.now();
-    const paidNow = new Date();
-    const expiry  = new Date(paidNow);
+    const paidNow = new Date(), expiry = new Date(paidNow);
     expiry.setFullYear(expiry.getFullYear() + 1);
-
-    await User.findByIdAndUpdate(pcr.userId, {
-      plan:              pcr.requestedPlan,
-      planPaymentStatus: 'paid',
-      planPaidAt:        paidNow,
-      planExpiresAt:     expiry,
-    });
-
+    await User.findByIdAndUpdate(pcr.userId, { plan: pcr.requestedPlan, planPaymentStatus: 'paid', planPaidAt: paidNow, planExpiresAt: expiry });
     const planDoc  = await PlatformPlan.findOne({ key: pcr.requestedPlan }).catch(() => null);
     const planName = planDoc ? planDoc.name : pcr.requestedPlan;
     const planPrice = planDoc ? planDoc.price : 0;
-    const expStr   = expiry.toLocaleDateString('en-IN', {
-      day: '2-digit', month: 'long', year: 'numeric',
-    });
-
+    const expStr   = expiry.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
     await sendMail({
-      to: pcr.ownerEmail,
-      subject: `Plan Upgraded: ${planName}`,
-      html: emailHtml({
-        title: 'Plan Upgrade Confirmed!',
-        body: `<p>Hi <strong>${pcr.ownerName}</strong>, your plan is now <strong style="color:#c8a96e">${planName}</strong>!</p>
+      to: pcr.ownerEmail, subject: `Plan Upgraded: ${planName}`,
+      html: emailHtml({ title: 'Plan Upgrade Confirmed!', body: `<p>Hi <strong>${pcr.ownerName}</strong>, your plan is now <strong style="color:#c8a96e">${planName}</strong>!</p>
                <table style="background:#f9f5ee;border-radius:8px;padding:16px;width:100%;margin:16px 0">
                  <tr><td style="color:#888">Plan</td><td style="font-weight:700;color:#c8a96e">${planName}</td></tr>
                  <tr><td style="color:#888">Amount</td><td>₹${Number(planPrice).toLocaleString('en-IN')}</td></tr>
                  <tr><td style="color:#888">Valid Until</td><td style="font-weight:700">${expStr}</td></tr>
                  <tr><td style="color:#888">Ref</td><td style="font-family:monospace">${ref}</td></tr>
-               </table>`,
-        btnText: 'Go to Dashboard',
-        btnUrl: CLIENT_URL,
-        footer: `Receipt ref: ${ref}`,
-      }),
+               </table>`, btnText: 'Go to Dashboard', btnUrl: CLIENT_URL, footer: `Receipt ref: ${ref}` }),
     });
-
     res.json({ ok: true, planName, planExpiresAt: expiry });
-
-  } catch (e) {
-    console.error('confirm-payment (plan change) error:', e);
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── PAYMENT ROUTE (manual / cash) ─────────────────────────────────────────────
 app.patch('/api/bookings/:id/payment', authMiddleware, async (req, res) => {
   try {
     const { paymentType, paymentMethod, advanceAmount } = req.body;
     const b = await Booking.findById(req.params.id);
     if (!b) return res.status(404).json({ error: 'Booking not found' });
-    if (String(b.userId) !== String(req.user.id))
-      return res.status(403).json({ error: 'Not your booking' });
-    if (b.status !== 'confirmed')
-      return res.status(400).json({ error: 'Booking must be confirmed before payment' });
+    if (String(b.userId) !== String(req.user.id)) return res.status(403).json({ error: 'Not your booking' });
+    if (b.status !== 'confirmed') return res.status(400).json({ error: 'Booking must be confirmed before payment' });
 
     if (paymentType === 'cash_on_visit') {
-      const bookingDate = new Date(b.date);
-      const today = new Date(); today.setHours(0,0,0,0);
+      const bookingDate = new Date(b.date), today = new Date(); today.setHours(0,0,0,0);
       const diff = Math.floor((bookingDate - today) / (1000*60*60*24));
       if (diff < 1) return res.status(400).json({ error: 'Cash on Visit must be selected at least 1 day before the booking date' });
-      b.paymentType   = 'cash_on_visit';
-      b.paymentMethod = 'cash';
-      b.paymentStatus = 'unpaid';
-      b.cashOnVisitApproved = true;
-      b.status        = 'confirmed';
+      b.paymentType = 'cash_on_visit'; b.paymentMethod = 'cash'; b.paymentStatus = 'unpaid'; b.cashOnVisitApproved = true; b.status = 'confirmed';
     } else if (paymentType === 'advance') {
       const adv = parseFloat(advanceAmount || 0);
       if (adv <= 0 || adv >= b.total) return res.status(400).json({ error: 'Advance must be between ₹1 and total amount' });
-      b.paymentType   = 'advance';
-      b.paymentMethod = paymentMethod || '';
-      b.advanceAmount = adv;
-      b.paidAmount    = adv;
-      b.paymentStatus = 'advance_paid';
+      b.paymentType = 'advance'; b.paymentMethod = paymentMethod || ''; b.advanceAmount = adv; b.paidAmount = adv; b.paymentStatus = 'advance_paid';
     } else if (paymentType === 'full') {
-      b.paymentType   = 'full';
-      b.paymentMethod = paymentMethod || '';
-      b.paidAmount    = b.total;
-      b.paymentStatus = 'fully_paid';
-      b.status        = 'paid';
+      b.paymentType = 'full'; b.paymentMethod = paymentMethod || ''; b.paidAmount = b.total; b.paymentStatus = 'fully_paid'; b.status = 'paid';
     }
     await b.save();
     res.json(b);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── BLOCK ENTIRE VENUE ───────────────────────────────────────────────────────
 app.patch('/api/venues/:id/block', ownerMiddleware, async (req, res) => {
   try {
     const venue = await Venue.findById(req.params.id);
     if (!venue) return res.status(404).json({ error: 'Venue not found' });
-    if (String(venue.ownerId) !== String(req.user.id) && req.user.role !== 'admin')
-      return res.status(403).json({ error: 'Not your venue' });
+    if (String(venue.ownerId) !== String(req.user.id) && req.user.role !== 'admin') return res.status(403).json({ error: 'Not your venue' });
     venue.blocked = !!req.body.blocked;
     await venue.save();
     res.json({ ok: true, blocked: venue.blocked });
@@ -1351,17 +1166,13 @@ app.patch('/api/venues/:id/block-range', ownerMiddleware, async (req, res) => {
   try {
     const venue = await Venue.findById(req.params.id);
     if (!venue) return res.status(404).json({ error: 'Venue not found' });
-    if (String(venue.ownerId) !== String(req.user.id) && req.user.role !== 'admin')
-      return res.status(403).json({ error: 'Not your venue' });
+    if (String(venue.ownerId) !== String(req.user.id) && req.user.role !== 'admin') return res.status(403).json({ error: 'Not your venue' });
     const { date, timeRange, blocked } = req.body;
     if (!date) return res.status(400).json({ error: 'date required' });
     const key = timeRange ? date + '|' + timeRange : date;
     if (!venue.blockedRanges) venue.blockedRanges = [];
-    if (blocked) {
-      if (!venue.blockedRanges.includes(key)) venue.blockedRanges.push(key);
-    } else {
-      venue.blockedRanges = venue.blockedRanges.filter(r => r !== key);
-    }
+    if (blocked) { if (!venue.blockedRanges.includes(key)) venue.blockedRanges.push(key); }
+    else venue.blockedRanges = venue.blockedRanges.filter(r => r !== key);
     venue.markModified('blockedRanges');
     await venue.save();
     res.json({ ok: true, blockedRanges: venue.blockedRanges });
@@ -1393,9 +1204,9 @@ app.post('/api/reviews', authMiddleware, upload.single('photo'), async (req, res
     const { venueId, rating, comment } = req.body;
     if (!venueId || !rating) return res.status(400).json({ error: 'Venue and rating required' });
     const user   = await User.findById(req.user.id);
-    let photoFile = '';
-    if (req.file) photoFile = await saveImage(req.file.buffer);
-    const review = await Review.create({ venueId, userId: req.user.id, userName: user?.name, rating, comment, photo: photoFile });
+    let photoUrl = '';
+    if (req.file) photoUrl = await uploadToCloudinary(req.file.buffer, req.file.mimetype, 'evntly/reviews');
+    const review = await Review.create({ venueId, userId: req.user.id, userName: user?.name, rating, comment, photo: photoUrl });
     const allRev = await Review.find({ venueId });
     const avg    = allRev.reduce((s, r) => s + r.rating, 0) / allRev.length;
     await Venue.findByIdAndUpdate(venueId, { rating: Math.round(avg * 10) / 10, reviewCount: allRev.length });
@@ -1419,31 +1230,19 @@ app.get('/api/homepage-photos', async (req, res) => {
 app.post('/api/owner/apply', upload.array('proofFiles', 10), async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
-    if (!name || !email || !password)
-      return res.status(400).json({ error: 'Name, email and password are required' });
-    if (await User.findOne({ email: email.toLowerCase() }))
-      return res.status(400).json({ error: 'Email already registered' });
-    if (await OwnerApplication.findOne({ email: email.toLowerCase() }))
-      return res.status(400).json({ error: 'An application with this email already exists' });
+    if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password are required' });
+    if (await User.findOne({ email: email.toLowerCase() })) return res.status(400).json({ error: 'Email already registered' });
+    if (await OwnerApplication.findOne({ email: email.toLowerCase() })) return res.status(400).json({ error: 'An application with this email already exists' });
 
     const hash = await bcrypt.hash(password, 10);
-
     const proofFiles = [];
     for (const f of (req.files || [])) {
-      if (f.mimetype === 'application/pdf') {
-        const filename = Date.now() + '_' + Math.random().toString(36).slice(2) + '.pdf';
-        fs.writeFileSync(path.join(UPLOADS_DIR, filename), f.buffer);
-        proofFiles.push({ filename, originalName: f.originalname });
-      } else {
-        const filename = await saveImage(f.buffer);
-        proofFiles.push({ filename, originalName: f.originalname });
-      }
+      const url = await uploadToCloudinary(f.buffer, f.mimetype, 'evntly/proof-files');
+      proofFiles.push({ filename: url, originalName: f.originalname });
     }
 
-    const plan         = req.body.plan         || 'basic';
-    const venueName    = req.body.venueName    || '';
-    const venueAddress = req.body.venueAddress || '';
-    await OwnerApplication.create({ name, email: email.toLowerCase(), password: hash, phone, proofFiles, plan, venueName, venueAddress });
+    const plan = req.body.plan || 'basic';
+    await OwnerApplication.create({ name, email: email.toLowerCase(), password: hash, phone, proofFiles, plan, venueName: req.body.venueName || '', venueAddress: req.body.venueAddress || '' });
     res.status(201).json({ ok: true, message: 'Application submitted for review' });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1451,12 +1250,9 @@ app.post('/api/owner/apply', upload.array('proofFiles', 10), async (req, res) =>
 // ═════════════════════════════════════════════════════════════════════════════
 //  SUPER ADMIN ROUTES
 // ═════════════════════════════════════════════════════════════════════════════
-
 app.get('/api/admin/owner-applications', superadminMiddleware, async (req, res) => {
-  try {
-    const apps = await OwnerApplication.find().sort({ createdAt: -1 });
-    res.json(apps);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await OwnerApplication.find().sort({ createdAt: -1 })); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/admin/owner-applications/:id/approve', superadminMiddleware, async (req, res) => {
@@ -1464,25 +1260,12 @@ app.patch('/api/admin/owner-applications/:id/approve', superadminMiddleware, asy
     const application = await OwnerApplication.findById(req.params.id);
     if (!application) return res.status(404).json({ error: 'Application not found' });
     if (application.status === 'approved') return res.status(400).json({ error: 'Already approved' });
-
     application.status = 'approved';
     await application.save();
-
     await sendMail({
-      to: application.email,
-      subject: `✅ Your EVNTLY application is approved — complete payment to activate`,
-      html: emailHtml({
-        title: "Application Approved!",
-        body: `<p>Hi <strong>${application.name}</strong>,</p>
-               <p>🎉 Your EVNTLY venue owner application has been <strong style="color:#22c55e">approved</strong>!</p>
-               <p>The final step is completing the one-time platform fee payment. The admin will send you a payment link shortly.</p>
-               <p>Once payment is confirmed, your account will be fully activated and you can start listing your venues.</p>`,
-        btnText: 'Visit EVNTLY →',
-        btnUrl: CLIENT_URL,
-        footer: 'If you do not receive a payment link within 24 hours, please contact us.',
-      }),
+      to: application.email, subject: `✅ Your EVNTLY application is approved — complete payment to activate`,
+      html: emailHtml({ title: "Application Approved!", body: `<p>Hi <strong>${application.name}</strong>,</p><p>🎉 Your EVNTLY venue owner application has been <strong style="color:#22c55e">approved</strong>! The admin will send you a payment link shortly.</p>`, btnText: 'Visit EVNTLY →', btnUrl: CLIENT_URL, footer: 'If you do not receive a payment link within 24 hours, please contact us.' }),
     });
-
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1491,34 +1274,19 @@ app.patch('/api/admin/owner-applications/:id/reject', superadminMiddleware, asyn
   try {
     const application = await OwnerApplication.findById(req.params.id);
     if (!application) return res.status(404).json({ error: 'Application not found' });
-    application.status = 'rejected';
-    application.rejectReason = req.body.reason || '';
+    application.status = 'rejected'; application.rejectReason = req.body.reason || '';
     await application.save();
-
     await sendMail({
-      to: application.email,
-      subject: `Update on your ${BRAND} venue owner application`,
-      html: emailHtml({
-        title: 'Application Status Update',
-        body: `<p>Hi <strong>${application.name}</strong>,</p>
-               <p>Thank you for applying to become a venue owner on EVNTLY. After reviewing your application and the documents you submitted, we were <strong>unable to approve</strong> your application at this time.</p>
-               ${req.body.reason ? `<div style="background:#fff5f5;border-left:4px solid #ef4444;padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0"><strong>Reason:</strong><br>${req.body.reason}</div>` : ''}
-               <p>You're welcome to resubmit your application with updated documents or contact us if you have questions.</p>`,
-        btnText: 'Reapply →',
-        btnUrl: CLIENT_URL + '/#owner-section',
-        footer: 'If you believe this is a mistake, please reply to this email.',
-      }),
+      to: application.email, subject: `Update on your ${BRAND} venue owner application`,
+      html: emailHtml({ title: 'Application Status Update', body: `<p>Hi <strong>${application.name}</strong>,</p><p>Thank you for applying. After reviewing your application, we were <strong>unable to approve</strong> it at this time.</p>${req.body.reason ? `<div style="background:#fff5f5;border-left:4px solid #ef4444;padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0"><strong>Reason:</strong><br>${req.body.reason}</div>` : ''}<p>You're welcome to resubmit with updated documents.</p>`, btnText: 'Reapply →', btnUrl: CLIENT_URL + '/#owner-section', footer: 'If you believe this is a mistake, please reply to this email.' }),
     });
-
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/venues', superadminMiddleware, async (req, res) => {
-  try {
-    const venues = await Venue.find().sort({ createdAt: -1 });
-    res.json(venues);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await Venue.find().sort({ createdAt: -1 })); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/admin/venues/:id', superadminMiddleware, async (req, res) => {
@@ -1532,10 +1300,8 @@ app.delete('/api/admin/venues/:id', superadminMiddleware, async (req, res) => {
 });
 
 app.get('/api/admin/users', superadminMiddleware, async (req, res) => {
-  try {
-    const users = await User.find().select('-password').sort({ createdAt: -1 });
-    res.json(users);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await User.find().select('-password').sort({ createdAt: -1 })); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/admin/users/:id', superadminMiddleware, async (req, res) => {
@@ -1543,23 +1309,18 @@ app.delete('/api/admin/users/:id', superadminMiddleware, async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
     if (user.role === 'superadmin') return res.status(403).json({ error: 'Cannot delete super admin' });
-    await user.deleteOne();
-    res.json({ ok: true });
+    await user.deleteOne(); res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/bookings', superadminMiddleware, async (req, res) => {
-  try {
-    const bookings = await Booking.find().sort({ createdAt: -1 }).limit(200);
-    res.json(bookings);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await Booking.find().sort({ createdAt: -1 }).limit(200)); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/homepage-photos', superadminMiddleware, async (req, res) => {
-  try {
-    const photos = await HomepagePhoto.find().sort({ order: 1, createdAt: -1 });
-    res.json(photos);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await HomepagePhoto.find().sort({ order: 1, createdAt: -1 })); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/admin/homepage-photos', superadminMiddleware, upload.single('photo'), async (req, res) => {
@@ -1567,8 +1328,8 @@ app.post('/api/admin/homepage-photos', superadminMiddleware, upload.single('phot
     const { title, caption, order } = req.body;
     if (!title) return res.status(400).json({ error: 'Title required' });
     if (!req.file) return res.status(400).json({ error: 'Photo required' });
-    const filename = await saveImage(req.file.buffer);
-    const photo = await HomepagePhoto.create({ title, caption: caption||'', photo: filename, order: parseInt(order||0), active: true });
+    const photoUrl = await uploadToCloudinary(req.file.buffer, req.file.mimetype, 'evntly/homepage');
+    const photo = await HomepagePhoto.create({ title, caption: caption||'', photo: photoUrl, order: parseInt(order||0), active: true });
     res.status(201).json(photo);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1614,28 +1375,15 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Email is required' });
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) return res.json({ ok: true, message: 'If that email exists, a reset link has been sent.' });
-
     const token = crypto.randomBytes(32).toString('hex');
     user.resetPasswordToken = token;
     user.resetPasswordExp   = new Date(Date.now() + 60 * 60 * 1000);
     await user.save();
-
     const resetUrl = `${CLIENT_URL}/reset-password.html?token=${token}&email=${encodeURIComponent(user.email)}`;
-
     await sendMail({
-      to: user.email,
-      subject: `Reset your ${BRAND} password`,
-      html: emailHtml({
-        title: 'Password Reset Request',
-        body: `<p>Hi <strong>${user.name}</strong>,</p>
-               <p>We received a request to reset your EVNTLY password. Click the button below to set a new password. This link expires in <strong>1 hour</strong>.</p>
-               <p>If you didn't request this, you can safely ignore this email.</p>`,
-        btnText: 'Reset My Password →',
-        btnUrl: resetUrl,
-        footer: `This link will expire in 1 hour. If the button doesn't work, copy this URL: <a href="${resetUrl}" style="color:#c8a96e">${resetUrl}</a>`,
-      }),
+      to: user.email, subject: `Reset your ${BRAND} password`,
+      html: emailHtml({ title: 'Password Reset Request', body: `<p>Hi <strong>${user.name}</strong>,</p><p>Click below to reset your password. This link expires in <strong>1 hour</strong>.</p>`, btnText: 'Reset My Password →', btnUrl: resetUrl, footer: `This link will expire in 1 hour. Copy if button fails: <a href="${resetUrl}" style="color:#c8a96e">${resetUrl}</a>` }),
     });
-
     res.json({ ok: true, message: 'If that email exists, a reset link has been sent.' });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1643,107 +1391,51 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { email, token, password } = req.body;
-    if (!email || !token || !password)
-      return res.status(400).json({ error: 'Email, token and new password are required' });
-    if (password.length < 6)
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
-
-    const user = await User.findOne({
-      email:              email.toLowerCase(),
-      resetPasswordToken: token,
-      resetPasswordExp:   { $gt: new Date() },
-    });
+    if (!email || !token || !password) return res.status(400).json({ error: 'Email, token and new password are required' });
+    if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    const user = await User.findOne({ email: email.toLowerCase(), resetPasswordToken: token, resetPasswordExp: { $gt: new Date() } });
     if (!user) return res.status(400).json({ error: 'Reset link is invalid or has expired. Please request a new one.' });
-
-    user.password           = await bcrypt.hash(password, 10);
-    user.resetPasswordToken = '';
-    user.resetPasswordExp   = null;
+    user.password = await bcrypt.hash(password, 10);
+    user.resetPasswordToken = ''; user.resetPasswordExp = null;
     await user.save();
-
     await sendMail({
-      to: user.email,
-      subject: `Your ${BRAND} password has been changed`,
-      html: emailHtml({
-        title: 'Password Changed Successfully',
-        body: `<p>Hi <strong>${user.name}</strong>,</p>
-               <p>Your EVNTLY password was successfully reset. You can now sign in with your new password.</p>
-               <p>If you did not make this change, please contact us immediately.</p>`,
-        btnText: 'Sign In to EVNTLY →',
-        btnUrl: CLIENT_URL,
-      }),
+      to: user.email, subject: `Your ${BRAND} password has been changed`,
+      html: emailHtml({ title: 'Password Changed Successfully', body: `<p>Hi <strong>${user.name}</strong>,</p><p>Your EVNTLY password was successfully reset.</p>`, btnText: 'Sign In to EVNTLY →', btnUrl: CLIENT_URL }),
     });
-
     res.json({ ok: true, message: 'Password reset successfully. You can now sign in.' });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  ADMIN — SEND MESSAGE TO APPLICANT
-// ═════════════════════════════════════════════════════════════════════════════
 app.post('/api/admin/owner-applications/:id/message', superadminMiddleware, async (req, res) => {
   try {
     const { subject, message } = req.body;
     if (!message) return res.status(400).json({ error: 'Message is required' });
     const application = await OwnerApplication.findById(req.params.id);
     if (!application) return res.status(404).json({ error: 'Application not found' });
-
-    await sendMail({
-      to: application.email,
-      subject: subject || `Message from ${BRAND} regarding your application`,
-      html: emailHtml({
-        title: subject || `Message from ${BRAND}`,
-        body: `<p>Hi <strong>${application.name}</strong>,</p>
-               <p>${message.replace(/\n/g, '<br>')}</p>
-               <p>If you have questions, please reply to this email.</p>`,
-        btnText: 'Update My Application →',
-        btnUrl: CLIENT_URL + '/#owner-section',
-        footer: `This message was sent by the EVNTLY admin team regarding your venue owner registration application.`,
-      }),
-    });
-
+    await sendMail({ to: application.email, subject: subject || `Message from ${BRAND} regarding your application`, html: emailHtml({ title: subject || `Message from ${BRAND}`, body: `<p>Hi <strong>${application.name}</strong>,</p><p>${message.replace(/\n/g, '<br>')}</p>`, btnText: 'Update My Application →', btnUrl: CLIENT_URL + '/#owner-section', footer: `Sent by the EVNTLY admin team.` }) });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  ADMIN — SEND PAYMENT LINK TO OWNER AFTER APPROVAL
-// ═════════════════════════════════════════════════════════════════════════════
 app.post('/api/admin/owner-applications/:id/send-payment-link', superadminMiddleware, async (req, res) => {
   try {
     const application = await OwnerApplication.findById(req.params.id);
     if (!application) return res.status(404).json({ error: 'Application not found' });
     if (application.status !== 'approved') return res.status(400).json({ error: 'Application must be approved first' });
-
     const planKey = application.plan || 'basic';
-    const planDoc = await PlatformPlan.findOne({ key: planKey }) ||
-                    { name: planKey.charAt(0).toUpperCase()+planKey.slice(1), price: 4999, maxVenues: 1 };
-    const planName  = planDoc.name;
-    const planPrice = planDoc.price;
-    const maxVLabel = planDoc.maxVenues === -1 ? 'Unlimited venues' : planDoc.maxVenues + ' venue listing(s)';
-
+    const planDoc = await PlatformPlan.findOne({ key: planKey }) || { name: planKey.charAt(0).toUpperCase()+planKey.slice(1), price: 4999, maxVenues: 1 };
     const token = scriptPaymentToken(application._id);
-    const paymentLink = `${CLIENT_URL}/payment-confirm.html?appId=${application._id}&token=${token}&plan=${encodeURIComponent(planName)}&amount=${planPrice}&email=${encodeURIComponent(application.email)}`;
-
+    const paymentLink = `${CLIENT_URL}/payment-confirm.html?appId=${application._id}&token=${token}&plan=${encodeURIComponent(planDoc.name)}&amount=${planDoc.price}&email=${encodeURIComponent(application.email)}`;
+    const maxVLabel = planDoc.maxVenues === -1 ? 'Unlimited venues' : planDoc.maxVenues + ' venue listing(s)';
     await sendMail({
-      to: application.email,
-      subject: `💳 Complete your EVNTLY ${planName} Plan payment`,
-      html: emailHtml({
-        title: 'Complete Your Platform Fee Payment',
-        body: `<p>Hi <strong>${application.name}</strong>,</p>
-               <p>🎉 Your EVNTLY venue owner application has been <strong style="color:#22c55e">approved</strong>!</p>
-               <p>To activate your account, please complete the one-time platform fee for the <strong>${planName} Plan</strong>.</p>
+      to: application.email, subject: `💳 Complete your EVNTLY ${planDoc.name} Plan payment`,
+      html: emailHtml({ title: 'Complete Your Platform Fee Payment', body: `<p>Hi <strong>${application.name}</strong>,</p><p>🎉 Your application has been <strong style="color:#22c55e">approved</strong>! Complete the one-time platform fee to activate your account.</p>
                <table style="background:#f9f5ee;border-radius:8px;padding:16px;width:100%;margin:16px 0">
-                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Plan</td><td style="font-weight:700;color:#1a1a1a">${planName}</td></tr>
-                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Amount</td><td style="font-weight:800;color:#c8a96e;font-size:1.2rem">₹${planPrice.toLocaleString('en-IN')}</td></tr>
+                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Plan</td><td style="font-weight:700;color:#1a1a1a">${planDoc.name}</td></tr>
+                 <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Amount</td><td style="font-weight:800;color:#c8a96e;font-size:1.2rem">₹${planDoc.price.toLocaleString('en-IN')}</td></tr>
                  <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Access</td><td style="font-weight:700;color:#22c55e">${maxVLabel}</td></tr>
-               </table>
-               <p>After payment, your login credentials will be sent and you can start listing venues immediately.</p>`,
-        btnText: `Pay ₹${planPrice.toLocaleString('en-IN')} & Activate Account →`,
-        btnUrl: paymentLink,
-        footer: 'This payment link is valid for 48 hours. Contact us if you have questions.',
-      }),
+               </table>`, btnText: `Pay ₹${planDoc.price.toLocaleString('en-IN')} & Activate Account →`, btnUrl: paymentLink, footer: 'This payment link is valid for 48 hours.' }),
     });
-
     res.json({ ok: true, message: 'Payment link sent to ' + application.email, paymentLink });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1760,33 +1452,19 @@ app.patch('/api/admin/owner-applications/:id/mark-paid', superadminMiddleware, a
   try {
     const application = await OwnerApplication.findById(req.params.id);
     if (!application) return res.status(404).json({ error: 'Not found' });
-    application.planPaid       = true;
-    application.listingEnabled = true;
-    application.paymentRef     = req.body.paymentRef || 'MANUAL_' + Date.now();
+    application.planPaid = true; application.listingEnabled = true;
+    application.paymentRef = req.body.paymentRef || 'MANUAL_' + Date.now();
     await application.save();
-
     let user = await User.findOne({ email: application.email });
-    if (!user) {
-      user = await User.create({
-        name: application.name, email: application.email,
-        password: application.password, phone: application.phone, role: 'owner',
-      });
-    }
-
+    if (!user) user = await User.create({ name: application.name, email: application.email, password: application.password, phone: application.phone, role: 'owner' });
     await sendMail({
-      to: application.email,
-      subject: `✅ Your EVNTLY account is now active!`,
-      html: emailHtml({
-        title: 'Account Activated!',
-        body: `<p>Hi <strong>${application.name}</strong>,</p>
-               <p>Your EVNTLY venue owner account is now <strong style="color:#22c55e">fully activated</strong>. Sign in with your registered email and password to start listing venues.</p>
+      to: application.email, subject: `✅ Your EVNTLY account is now active!`,
+      html: emailHtml({ title: 'Account Activated!', body: `<p>Hi <strong>${application.name}</strong>,</p><p>Your EVNTLY venue owner account is now <strong style="color:#22c55e">fully activated</strong>. Sign in with your registered email and password to start listing venues.</p>
                <table style="background:#f9f5ee;border-radius:8px;padding:16px;width:100%;margin:16px 0;border-collapse:collapse">
                  <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Email</td><td style="font-weight:700;color:#1a1a1a">${application.email}</td></tr>
                  <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Plan</td><td style="font-weight:700;color:#c8a96e">${(application.plan||'basic').toUpperCase()}</td></tr>
                  <tr><td style="color:#888;font-size:0.82rem;padding:6px 0">Payment Ref</td><td style="font-family:monospace;color:#555">${application.paymentRef}</td></tr>
-               </table>`,
-        btnText: 'Sign In to EVNTLY →', btnUrl: CLIENT_URL,
-      }),
+               </table>`, btnText: 'Sign In to EVNTLY →', btnUrl: CLIENT_URL }),
     });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -1796,30 +1474,21 @@ app.patch('/api/admin/owner-applications/:id/mark-paid', superadminMiddleware, a
 //  PLATFORM PLAN ROUTES
 // ═════════════════════════════════════════════════════════════════════════════
 app.get('/api/plans', async (req, res) => {
-  try {
-    res.json(await PlatformPlan.find({ isActive: true }).sort({ sortOrder: 1 }));
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await PlatformPlan.find({ isActive: true }).sort({ sortOrder: 1 })); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/plans', superadminMiddleware, async (req, res) => {
-  try {
-    res.json(await PlatformPlan.find().sort({ sortOrder: 1 }));
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await PlatformPlan.find().sort({ sortOrder: 1 })); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/admin/plans', superadminMiddleware, async (req, res) => {
   try {
     const { name, key, price, maxVenues, features, isPopular, sortOrder } = req.body;
     if (!name || !key) return res.status(400).json({ error: 'Name and key are required' });
-    if (await PlatformPlan.findOne({ key: key.toLowerCase() }))
-      return res.status(400).json({ error: 'A plan with this key already exists' });
-    const plan = await PlatformPlan.create({
-      name, key: key.toLowerCase().replace(/\s+/g,'_'),
-      price: parseFloat(price) || 0,
-      maxVenues: parseInt(maxVenues) || 1,
-      features: Array.isArray(features) ? features : String(features||'').split('\n').map(f=>f.trim()).filter(Boolean),
-      isPopular: !!isPopular, sortOrder: parseInt(sortOrder) || 0, isActive: true,
-    });
+    if (await PlatformPlan.findOne({ key: key.toLowerCase() })) return res.status(400).json({ error: 'A plan with this key already exists' });
+    const plan = await PlatformPlan.create({ name, key: key.toLowerCase().replace(/\s+/g,'_'), price: parseFloat(price)||0, maxVenues: parseInt(maxVenues)||1, features: Array.isArray(features)?features:String(features||'').split('\n').map(f=>f.trim()).filter(Boolean), isPopular: !!isPopular, sortOrder: parseInt(sortOrder)||0, isActive: true });
     res.status(201).json(plan);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1829,12 +1498,12 @@ app.put('/api/admin/plans/:id', superadminMiddleware, async (req, res) => {
     const { name, price, maxVenues, features, isPopular, sortOrder, isActive } = req.body;
     const upd = {};
     if (name      !== undefined) upd.name      = name;
-    if (price     !== undefined) upd.price     = parseFloat(price) || 0;
-    if (maxVenues !== undefined) upd.maxVenues = parseInt(maxVenues) || 1;
+    if (price     !== undefined) upd.price     = parseFloat(price)||0;
+    if (maxVenues !== undefined) upd.maxVenues = parseInt(maxVenues)||1;
     if (isPopular !== undefined) upd.isPopular = !!isPopular;
-    if (sortOrder !== undefined) upd.sortOrder = parseInt(sortOrder) || 0;
+    if (sortOrder !== undefined) upd.sortOrder = parseInt(sortOrder)||0;
     if (isActive  !== undefined) upd.isActive  = !!isActive;
-    if (features  !== undefined) upd.features  = Array.isArray(features) ? features : String(features).split('\n').map(f=>f.trim()).filter(Boolean);
+    if (features  !== undefined) upd.features  = Array.isArray(features)?features:String(features).split('\n').map(f=>f.trim()).filter(Boolean);
     const plan = await PlatformPlan.findByIdAndUpdate(req.params.id, upd, { new: true });
     if (!plan) return res.status(404).json({ error: 'Plan not found' });
     res.json(plan);
@@ -1849,7 +1518,6 @@ app.delete('/api/admin/plans/:id', superadminMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── ADMIN: Plan Change Requests ──────────────────────────────────────────────
 app.get('/api/admin/plan-change-requests', superadminMiddleware, async (req,res) => {
   try { res.json(await PlanChangeRequest.find().sort({createdAt:-1})); } catch(e){ res.status(500).json({error:e.message}); }
 });
@@ -1861,8 +1529,7 @@ app.post('/api/admin/plan-change-requests/:id/send-payment-link', superadminMidd
     const planDoc = await PlatformPlan.findOne({key:pcr.requestedPlan}).catch(()=>null) || {name:pcr.requestedPlan, price:0, maxVenues:1};
     const token = scriptPaymentToken(pcr._id);
     const paymentLink = `${CLIENT_URL}/payment-confirm.html?pcrId=${pcr._id}&token=${token}&plan=${encodeURIComponent(planDoc.name)}&amount=${planDoc.price}&email=${encodeURIComponent(pcr.ownerEmail)}`;
-    await sendMail({ to:pcr.ownerEmail, subject:'Plan Upgrade Payment Link: '+planDoc.name,
-      html:emailHtml({ title:'Complete Your Plan Upgrade', body:'<p>Hi <strong>'+pcr.ownerName+'</strong>, your upgrade to <strong>'+planDoc.name+'</strong> has been approved. Click below to pay and activate.</p>', btnText:'Pay & Upgrade', btnUrl:paymentLink, footer:'Link valid 48 hours.' }) });
+    await sendMail({ to:pcr.ownerEmail, subject:'Plan Upgrade Payment Link: '+planDoc.name, html:emailHtml({ title:'Complete Your Plan Upgrade', body:'<p>Hi <strong>'+pcr.ownerName+'</strong>, your upgrade to <strong>'+planDoc.name+'</strong> has been approved. Click below to pay and activate.</p>', btnText:'Pay & Upgrade', btnUrl:paymentLink, footer:'Link valid 48 hours.' }) });
     pcr.status='payment_sent'; pcr.paymentSentAt=new Date(); pcr.paymentLink=paymentLink; await pcr.save();
     res.json({ok:true, paymentLink});
   } catch(e){ res.status(500).json({error:e.message}); }
@@ -1910,12 +1577,7 @@ app.get('/api/owner/reports/summary', ownerMiddleware, async (req,res) => {
     const thisRev=thisMonth.reduce((s,b)=>s+(b.total||0),0);
     const lastRev=lastMonth.reduce((s,b)=>s+(b.total||0),0);
     const growth=lastRev>0?Math.round((thisRev-lastRev)/lastRev*100):(thisRev>0?100:0);
-    res.json({ totalRevenue:revenue, totalBookings:bookings.length, confirmedBookings:paid.length,
-      pendingBookings:bookings.filter(b=>b.status==='pending').length,
-      cancelledBookings:bookings.filter(b=>['rejected','cancelled'].includes(b.status)).length,
-      venueCount:venues.length, avgBookingValue:paid.length?Math.round(revenue/paid.length):0,
-      conversionRate:bookings.length?Math.round(paid.length/bookings.length*100):0,
-      thisMonthRevenue:thisRev, lastMonthRevenue:lastRev, revenueGrowth:growth, topVenue:venues.length?venues[0].name:'' });
+    res.json({ totalRevenue:revenue, totalBookings:bookings.length, confirmedBookings:paid.length, pendingBookings:bookings.filter(b=>b.status==='pending').length, cancelledBookings:bookings.filter(b=>['rejected','cancelled'].includes(b.status)).length, venueCount:venues.length, avgBookingValue:paid.length?Math.round(revenue/paid.length):0, conversionRate:bookings.length?Math.round(paid.length/bookings.length*100):0, thisMonthRevenue:thisRev, lastMonthRevenue:lastRev, revenueGrowth:growth, topVenue:venues.length?venues[0].name:'' });
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 
@@ -1925,22 +1587,13 @@ app.get('/api/owner/reports/revenue', ownerMiddleware, async (req,res) => {
     const {venues,bookings} = await getOwnerBookings(req.user.id,{from,to,venueId});
     const paid=bookings.filter(b=>['confirmed','paid'].includes(b.status));
     const groups={};
-    paid.forEach(b=>{
-      const d=new Date(b.date); let key;
-      if(groupBy==='day') key=b.date;
-      else if(groupBy==='year') key=String(d.getFullYear());
-      else key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-      if(!groups[key]) groups[key]={period:key,revenue:0,bookings:0,avgBookingValue:0};
-      groups[key].revenue+=(b.total||0); groups[key].bookings+=1;
-    });
+    paid.forEach(b=>{ const d=new Date(b.date); let key; if(groupBy==='day') key=b.date; else if(groupBy==='year') key=String(d.getFullYear()); else key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); if(!groups[key]) groups[key]={period:key,revenue:0,bookings:0,avgBookingValue:0}; groups[key].revenue+=(b.total||0); groups[key].bookings+=1; });
     Object.values(groups).forEach(g=>{g.avgBookingValue=g.bookings?Math.round(g.revenue/g.bookings):0;});
     const series=Object.values(groups).sort((a,b)=>a.period.localeCompare(b.period));
     const totalRev=paid.reduce((s,b)=>s+(b.total||0),0);
     const byVenue={};
     paid.forEach(b=>{ if(!byVenue[b.venueName]) byVenue[b.venueName]={venue:b.venueName,revenue:0,bookings:0}; byVenue[b.venueName].revenue+=(b.total||0); byVenue[b.venueName].bookings+=1; });
-    res.json({ series, totalRevenue:totalRev, totalBookings:paid.length,
-      avgBookingValue:paid.length?Math.round(totalRev/paid.length):0,
-      byVenue:Object.values(byVenue).sort((a,b)=>b.revenue-a.revenue), venueCount:venues.length });
+    res.json({ series, totalRevenue:totalRev, totalBookings:paid.length, avgBookingValue:paid.length?Math.round(totalRev/paid.length):0, byVenue:Object.values(byVenue).sort((a,b)=>b.revenue-a.revenue), venueCount:venues.length });
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 
@@ -1951,15 +1604,8 @@ app.get('/api/owner/reports/bookings', ownerMiddleware, async (req,res) => {
     const byStatus={}, byEventType={}, byVenue={}, byDay={};
     const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     venues.forEach(v=>{byVenue[String(v._id)]={venue:v.name,bookings:0,revenue:0};});
-    bookings.forEach(b=>{
-      byStatus[b.status]=(byStatus[b.status]||0)+1;
-      byEventType[b.eventType||'Other']=(byEventType[b.eventType||'Other']||0)+1;
-      if(byVenue[String(b.venueId)]){byVenue[String(b.venueId)].bookings+=1;byVenue[String(b.venueId)].revenue+=(b.total||0);}
-      if(b.date){const d=days[new Date(b.date).getDay()];byDay[d]=(byDay[d]||0)+1;}
-    });
-    res.json({ bookings, total:bookings.length, byStatus, byEventType,
-      byVenue:Object.values(byVenue).sort((a,b)=>b.bookings-a.bookings),
-      byDay:days.map(d=>({day:d,count:byDay[d]||0})) });
+    bookings.forEach(b=>{ byStatus[b.status]=(byStatus[b.status]||0)+1; byEventType[b.eventType||'Other']=(byEventType[b.eventType||'Other']||0)+1; if(byVenue[String(b.venueId)]){byVenue[String(b.venueId)].bookings+=1;byVenue[String(b.venueId)].revenue+=(b.total||0);} if(b.date){const d=days[new Date(b.date).getDay()];byDay[d]=(byDay[d]||0)+1;} });
+    res.json({ bookings, total:bookings.length, byStatus, byEventType, byVenue:Object.values(byVenue).sort((a,b)=>b.bookings-a.bookings), byDay:days.map(d=>({day:d,count:byDay[d]||0})) });
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 
@@ -1972,19 +1618,7 @@ app.get('/api/owner/reports/venues', ownerMiddleware, async (req,res) => {
     if(from||to){q.date={};if(from)q.date.$gte=from;if(to)q.date.$lte=to;}
     const bookings=await Booking.find(q);
     const reviews =await Review.find({venueId:{$in:venueIds}});
-    const report=venues.map(v=>{
-      const vb=bookings.filter(b=>String(b.venueId)===String(v._id));
-      const vr=reviews.filter(r=>String(r.venueId)===String(v._id));
-      const paid=vb.filter(b=>['confirmed','paid'].includes(b.status));
-      const revSum=paid.reduce((s,b)=>s+(b.total||0),0);
-      return { id:v._id, name:v.name, type:v.type, location:v.location, capacity:v.capacity, price1hr:v.price1hr,
-        totalBookings:vb.length, confirmedBookings:paid.length, revenue:revSum,
-        avgBookingValue:paid.length?Math.round(revSum/paid.length):0,
-        conversionRate:vb.length?Math.round(paid.length/vb.length*100):0,
-        reviewCount:vr.length, avgRating:vr.length?(vr.reduce((s,r)=>s+(r.rating||0),0)/vr.length).toFixed(1):null,
-        pendingBookings:vb.filter(b=>b.status==='pending').length,
-        cancelledBookings:vb.filter(b=>['rejected','cancelled'].includes(b.status)).length };
-    });
+    const report=venues.map(v=>{ const vb=bookings.filter(b=>String(b.venueId)===String(v._id)); const vr=reviews.filter(r=>String(r.venueId)===String(v._id)); const paid=vb.filter(b=>['confirmed','paid'].includes(b.status)); const revSum=paid.reduce((s,b)=>s+(b.total||0),0); return { id:v._id, name:v.name, type:v.type, location:v.location, capacity:v.capacity, price1hr:v.price1hr, totalBookings:vb.length, confirmedBookings:paid.length, revenue:revSum, avgBookingValue:paid.length?Math.round(revSum/paid.length):0, conversionRate:vb.length?Math.round(paid.length/vb.length*100):0, reviewCount:vr.length, avgRating:vr.length?(vr.reduce((s,r)=>s+(r.rating||0),0)/vr.length).toFixed(1):null, pendingBookings:vb.filter(b=>b.status==='pending').length, cancelledBookings:vb.filter(b=>['rejected','cancelled'].includes(b.status)).length }; });
     res.json({venues:report.sort((a,b)=>b.revenue-a.revenue)});
   } catch(e){ res.status(500).json({error:e.message}); }
 });
@@ -1994,13 +1628,7 @@ app.get('/api/owner/reports/customers', ownerMiddleware, async (req,res) => {
     const {from,to} = req.query;
     const {bookings} = await getOwnerBookings(req.user.id,{from,to});
     const map={};
-    bookings.forEach(b=>{
-      const k=b.userEmail||b.userName||'Unknown';
-      if(!map[k]) map[k]={name:b.userName||'Unknown',email:b.userEmail||'',bookings:0,revenue:0,lastBooking:''};
-      map[k].bookings+=1;
-      if(['confirmed','paid'].includes(b.status)) map[k].revenue+=(b.total||0);
-      if(!map[k].lastBooking||b.date>map[k].lastBooking) map[k].lastBooking=b.date;
-    });
+    bookings.forEach(b=>{ const k=b.userEmail||b.userName||'Unknown'; if(!map[k]) map[k]={name:b.userName||'Unknown',email:b.userEmail||'',bookings:0,revenue:0,lastBooking:''}; map[k].bookings+=1; if(['confirmed','paid'].includes(b.status)) map[k].revenue+=(b.total||0); if(!map[k].lastBooking||b.date>map[k].lastBooking) map[k].lastBooking=b.date; });
     const customers=Object.values(map).sort((a,b)=>b.revenue-a.revenue);
     const repeat=customers.filter(c=>c.bookings>1).length;
     res.json({customers,total:customers.length,repeatCustomers:repeat,repeatRate:customers.length?Math.round(repeat/customers.length*100):0});
@@ -2018,14 +1646,7 @@ app.get('/api/owner/reports/payments', ownerMiddleware, async (req,res) => {
     const unpaid     =confirmed.filter(b=>b.paymentStatus==='unpaid'&&!b.cashOnVisitApproved);
     const collected  =fullyPaid.reduce((s,b)=>s+(b.total||0),0)+advancePaid.reduce((s,b)=>s+(b.paidAmount||0),0);
     const pending    =unpaid.reduce((s,b)=>s+(b.total||0),0)+advancePaid.reduce((s,b)=>s+((b.total||0)-(b.paidAmount||0)),0);
-    res.json({ bookings:confirmed, summary:{ totalRevenue:confirmed.reduce((s,b)=>s+(b.total||0),0),
-      totalCollected:collected, totalPending:pending, fullyPaidCount:fullyPaid.length,
-      advancePaidCount:advancePaid.length, cashOnVisitCount:cashVisit.length, unpaidCount:unpaid.length },
-      byPaymentMethod:{ upi:confirmed.filter(b=>b.paymentMethod==='upi').length,
-        card:confirmed.filter(b=>b.paymentMethod==='card').length,
-        netbanking:confirmed.filter(b=>b.paymentMethod==='netbanking').length,
-        cash:cashVisit.length,
-        other:confirmed.filter(b=>!['upi','card','netbanking'].includes(b.paymentMethod)&&!b.cashOnVisitApproved).length } });
+    res.json({ bookings:confirmed, summary:{ totalRevenue:confirmed.reduce((s,b)=>s+(b.total||0),0), totalCollected:collected, totalPending:pending, fullyPaidCount:fullyPaid.length, advancePaidCount:advancePaid.length, cashOnVisitCount:cashVisit.length, unpaidCount:unpaid.length }, byPaymentMethod:{ upi:confirmed.filter(b=>b.paymentMethod==='upi').length, card:confirmed.filter(b=>b.paymentMethod==='card').length, netbanking:confirmed.filter(b=>b.paymentMethod==='netbanking').length, cash:cashVisit.length, other:confirmed.filter(b=>!['upi','card','netbanking'].includes(b.paymentMethod)&&!b.cashOnVisitApproved).length } });
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 
@@ -2034,8 +1655,7 @@ app.get('/api/owner/reports/export/bookings-csv', ownerMiddleware, async (req,re
     const {from,to,status='all'} = req.query;
     const {bookings} = await getOwnerBookings(req.user.id,{from,to,status});
     const hdr=['Ref','Venue','Customer','Email','Date','Start Time','Hours','Guests','Event Type','Status','Payment Status','Base Price','Add-ons','Plate Charges','Total'];
-    const rows=bookings.map(b=>[b.ref||b._id,b.venueName||'',b.userName||'',b.userEmail||'',b.date||'',b.startTime||'',b.hours||'',b.guests||'',b.eventType||'',b.status,b.paymentStatus||'unpaid',b.basePrice||0,b.addonPrice||0,b.plateCharges||0,b.total||0]
-      .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+    const rows=bookings.map(b=>[b.ref||b._id,b.venueName||'',b.userName||'',b.userEmail||'',b.date||'',b.startTime||'',b.hours||'',b.guests||'',b.eventType||'',b.status,b.paymentStatus||'unpaid',b.basePrice||0,b.addonPrice||0,b.plateCharges||0,b.total||0].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
     res.setHeader('Content-Type','text/csv');
     res.setHeader('Content-Disposition','attachment; filename="evntly-bookings.csv"');
     res.send([hdr.join(','),...rows].join('\r\n'));
@@ -2048,8 +1668,7 @@ app.get('/api/owner/reports/export/revenue-csv', ownerMiddleware, async (req,res
     const {bookings} = await getOwnerBookings(req.user.id,{from,to});
     const paid=bookings.filter(b=>['confirmed','paid'].includes(b.status));
     const hdr=['Date','Venue','Customer','Event Type','Hours','Base Price','Add-ons','Plate Charges','Total','Payment Status'];
-    const rows=paid.map(b=>[b.date||'',b.venueName||'',b.userName||'',b.eventType||'',b.hours||1,b.basePrice||0,b.addonPrice||0,b.plateCharges||0,b.total||0,b.paymentStatus||'']
-      .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+    const rows=paid.map(b=>[b.date||'',b.venueName||'',b.userName||'',b.eventType||'',b.hours||1,b.basePrice||0,b.addonPrice||0,b.plateCharges||0,b.total||0,b.paymentStatus||''].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
     res.setHeader('Content-Type','text/csv');
     res.setHeader('Content-Disposition','attachment; filename="evntly-revenue.csv"');
     res.send([hdr.join(','),...rows].join('\r\n'));
