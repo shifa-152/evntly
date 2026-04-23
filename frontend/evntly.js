@@ -4,7 +4,7 @@
 
 // ─── CONFIG ──────────────────────────────────────────────────────
 const _host = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? 'http://localhost:5000'
+  ? 'https://evntly-28mf.vercel.app'
   : `${location.protocol}//${location.hostname}:5000`;
 const API_BASE = _host + '/api';
 // Debug: uncomment to verify API endpoint
@@ -527,7 +527,7 @@ async function loadOwnerPlans() {
   // Then try to load from API and re-render with live data
   try {
     const host = (location.hostname==='localhost'||location.hostname==='127.0.0.1')
-      ? 'http://localhost:5000' : `${location.protocol}//${location.hostname}:5000`;
+      ? 'https://evntly-28mf.vercel.app' : `${location.protocol}//${location.hostname}:5000`;
     const res  = await fetch(host + '/api/plans');
     if (res.ok) {
       const plans = await res.json();
