@@ -1125,7 +1125,23 @@ app.post('/api/plan-change-requests/:id/confirm-payment', async (req, res) => {
     res.json({ ok: true, planName, planExpiresAt: expiry });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-
+// ── OWNER: MARK BOOKING AS MANUALLY PAID ─────────────────────────────────────
+app.patch('/api/bookings/:id/mark-paid', ownerMiddleware, async (req, res) => {
+  try {
+    const b = await Booking.findById(req.params.id);
+    if (!b) return res.status(404).json({ error: 'Booking not found' });
+    const venue = await Venue.findOne({ _id: b.venueId, ownerId: req.user.id });
+    if (!venue && req.user.role !== 'superadmin')
+      return res.status(403).json({ error: 'Not your venue' });
+    b.paymentType   = 'full';
+    b.paymentMethod = req.body.paymentMethod || 'cash';
+    b.paidAmount    = b.total;
+    b.paymentStatus = 'fully_paid';
+    b.status        = 'paid';
+    await b.save();
+    res.json(b);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 app.patch('/api/bookings/:id/payment', authMiddleware, async (req, res) => {
   try {
     const { paymentType, paymentMethod, advanceAmount } = req.body;

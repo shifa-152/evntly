@@ -1877,9 +1877,9 @@ async function loadMyBookings() {
 async function markManualPaid(bookingId) {
   if (!confirm('Mark this booking as fully paid?')) return;
   try {
-    await api(`/bookings/${bookingId}/payment`, {
+    await api(`/bookings/${bookingId}/mark-paid`, {
       method: 'PATCH',
-      body: { paymentType: 'full', paymentMethod: 'cash' }
+      body: { paymentMethod: 'cash' }
     });
     toast('Booking marked as paid! ✅', 'success');
     loadRequests();
