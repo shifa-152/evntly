@@ -555,7 +555,7 @@ async function api(path, {method='GET',body,formData}={}){
   const opts = { method, headers };
   if (formData) { opts.body = formData; }
   else if (body) { headers['Content-Type']='application/json'; opts.body=JSON.stringify(body); }
-  const res = await fetch(API + path, opts);
+  const res = await fetch(API_BASE + path, opts);
   const data = await res.json().catch(()=>({}));
   if (!res.ok) throw data;
   return data;
@@ -1406,3 +1406,4 @@ function showFormMsg(el, text, type) {
 </script>
 </body>
 </html>
+
