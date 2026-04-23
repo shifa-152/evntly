@@ -1588,24 +1588,79 @@ async function getOwnerBookings(ownerId, { from, to, venueId, status }={}) {
   return { venues, bookings: await Booking.find(q).sort({date:1,createdAt:1}) };
 }
 
-app.get('/api/owner/reports/summary', ownerMiddleware, async (req,res) => {
+app.get('/api/owner/reports/summary', ownerMiddleware, async (req, res) => {
   try {
-    const {from,to} = req.query;
-    const {venues,bookings} = await getOwnerBookings(req.user.id,{from,to});
-    const paid=bookings.filter(b=>['confirmed','paid'].includes(b.status));
-    const revenue=paid.reduce((s,b)=>s+(b.total||0),0);
-    const now=new Date();
-    const thisMonthStart=new Date(now.getFullYear(),now.getMonth(),1).toISOString().split('T')[0];
-    const lastMonthStart=new Date(now.getFullYear(),now.getMonth()-1,1).toISOString().split('T')[0];
-    const lastMonthEnd  =new Date(now.getFullYear(),now.getMonth(),0).toISOString().split('T')[0];
-    const all=await Booking.find({venueId:{$in:venues.map(v=>v._id)}});
-    const thisMonth=all.filter(b=>b.date>=thisMonthStart&&['confirmed','paid'].includes(b.status));
-    const lastMonth=all.filter(b=>b.date>=lastMonthStart&&b.date<=lastMonthEnd&&['confirmed','paid'].includes(b.status));
-    const thisRev=thisMonth.reduce((s,b)=>s+(b.total||0),0);
-    const lastRev=lastMonth.reduce((s,b)=>s+(b.total||0),0);
-    const growth=lastRev>0?Math.round((thisRev-lastRev)/lastRev*100):(thisRev>0?100:0);
-    res.json({ totalRevenue:revenue, totalBookings:bookings.length, confirmedBookings:paid.length, pendingBookings:bookings.filter(b=>b.status==='pending').length, cancelledBookings:bookings.filter(b=>['rejected','cancelled'].includes(b.status)).length, venueCount:venues.length, avgBookingValue:paid.length?Math.round(revenue/paid.length):0, conversionRate:bookings.length?Math.round(paid.length/bookings.length*100):0, thisMonthRevenue:thisRev, lastMonthRevenue:lastRev, revenueGrowth:growth, topVenue:venues.length?venues[0].name:'' });
-  } catch(e){ res.status(500).json({error:e.message}); }
+    const { from, to } = req.query;
+
+    const { venues } = await getOwnerBookings(req.user.id, {});
+    const venueIds = venues.map(v => v._id);
+
+    // Single source of truth — fetch all bookings for owner's venues
+    const all = await Booking.find({ venueId: { $in: venueIds } });
+
+    // Normalize date to YYYY-MM-DD string regardless of how it's stored
+    const toDateStr = (d) => new Date(d).toISOString().split('T')[0];
+
+    // Apply from/to filter for the main stats
+    const bookings = all.filter(b => {
+      const d = toDateStr(b.date);
+      if (from && d < from) return false;
+      if (to   && d > to)   return false;
+      return true;
+    });
+
+    const paid = bookings.filter(b => ['confirmed', 'paid'].includes(b.status));
+    const revenue = paid.reduce((s, b) => s + (b.total || 0), 0);
+
+    // Month-over-month using the full unfiltered set
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+    const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+
+    const thisMonth = all.filter(b => {
+      const d = toDateStr(b.date);
+      return d >= thisMonthStart && ['confirmed', 'paid'].includes(b.status);
+    });
+
+    const lastMonth = all.filter(b => {
+      const d = toDateStr(b.date);
+      return d >= lastMonthStart && d <= lastMonthEnd && ['confirmed', 'paid'].includes(b.status);
+    });
+
+    const thisRev = thisMonth.reduce((s, b) => s + (b.total || 0), 0);
+    const lastRev = lastMonth.reduce((s, b) => s + (b.total || 0), 0);
+    const growth = lastRev > 0
+      ? Math.round((thisRev - lastRev) / lastRev * 100)
+      : (thisRev > 0 ? 100 : 0);
+
+    // Compute actual top venue by revenue
+    const venueRevMap = {};
+    paid.forEach(b => {
+      const key = String(b.venueId);
+      venueRevMap[key] = (venueRevMap[key] || 0) + (b.total || 0);
+    });
+    const topVenue = venues
+      .sort((a, b) => (venueRevMap[String(b._id)] || 0) - (venueRevMap[String(a._id)] || 0))[0];
+
+    res.json({
+      totalRevenue:       revenue,
+      totalBookings:      bookings.length,
+      confirmedBookings:  paid.length,
+      pendingBookings:    bookings.filter(b => b.status === 'pending').length,
+      cancelledBookings:  bookings.filter(b => ['rejected', 'cancelled'].includes(b.status)).length,
+      venueCount:         venues.length,
+      avgBookingValue:    paid.length ? Math.round(revenue / paid.length) : 0,
+      conversionRate:     bookings.length ? Math.round(paid.length / bookings.length * 100) : 0,
+      thisMonthRevenue:   thisRev,
+      lastMonthRevenue:   lastRev,
+      revenueGrowth:      growth,
+      topVenue:           topVenue ? topVenue.name : '',
+    });
+
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/owner/reports/revenue', ownerMiddleware, async (req,res) => {
