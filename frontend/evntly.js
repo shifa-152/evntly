@@ -921,15 +921,24 @@ function checkAvailSlots() {
   if (!starts.length) { wrap.innerHTML = '<div class="slot-blocked-msg">⚠️ No ' + hours + '-hr slots fit within operating hours.</div>'; if(priceDisplay) priceDisplay.innerHTML=''; return; }
 
   const blocked    = new Set(v.blockedRanges || []);
-  const dayBlocked = blocked.has(date);
-  const legacyBlk  = new Set();
-  (v.slots||[]).forEach(s => { if ((s.blockedDates||[]).includes(date)) legacyBlk.add(s.time); });
+const dayBlocked = blocked.has(date);
+const legacyBlk  = new Set();
+(v.slots||[]).forEach(s => { if ((s.blockedDates||[]).includes(date)) legacyBlk.add(s.time); });
 
-  wrap.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">' + starts.map(function(start) {
-    const end   = minsToTime(timeToMins(start) + hours*60);
-    const key   = date+'|'+start+'-'+end;
-    const label = start+' – '+end;
-    const isBlk = dayBlocked || blocked.has(key) || legacyBlk.has(start);
+// Build list of booked ranges for overlap checking
+const bookedRanges = [];
+(v.blockedRanges || []).forEach(key => {
+  const m = key.match(/^(.+)\|(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+  if (m && m[1] === date) bookedRanges.push({ start: timeToMins(m[2]), end: timeToMins(m[3]) });
+});
+
+sc.innerHTML = starts.map(function(start) {
+    const startM = timeToMins(start);
+    const endM   = startM + hours * 60;
+    const end    = minsToTime(endM);
+    const label  = start+' – '+end;
+    const overlaps = bookedRanges.some(r => startM < r.end && endM > r.start);
+    const isBlk = dayBlocked || overlaps || legacyBlk.has(start);
     if (isBlk) return '<button class="slot-btn blocked" disabled>🔒 '+label+'</button>';
     return '<button class="slot-btn" onclick="selectCASlot(this,\''+start+'\',\''+end+'\')">'+label+'</button>';
   }).join('') + '</div>';
@@ -1176,16 +1185,25 @@ function refreshSlots() {
   }
 
   const blocked    = new Set(v.blockedRanges || []);
-  const dayBlocked = blocked.has(date);
-  const legacyBlk  = new Set();
-  (v.slots||[]).forEach(s => { if ((s.blockedDates||[]).includes(date)) legacyBlk.add(s.time); });
+const dayBlocked = blocked.has(date);
+const legacyBlk  = new Set();
+(v.slots||[]).forEach(s => { if ((s.blockedDates||[]).includes(date)) legacyBlk.add(s.time); });
 
-  sc.innerHTML = starts.map(function(start) {
-    const end   = minsToTime(timeToMins(start) + hours*60);
-    const key   = date+'|'+start+'-'+end;
-    const label = start+' – '+end;
-    const isBlk = dayBlocked || blocked.has(key) || legacyBlk.has(start);
-    if (isBlk) return '<button class="slot-btn blocked" disabled>🔒 '+label+'</button>';
+// Build list of booked ranges for overlap checking
+const bookedRanges = [];
+(v.blockedRanges || []).forEach(key => {
+  const m = key.match(/^(.+)\|(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+  if (m && m[1] === date) bookedRanges.push({ start: timeToMins(m[2]), end: timeToMins(m[3]) });
+});
+
+sc.innerHTML = starts.map(function(start) {
+    const startM = timeToMins(start);
+    const endM   = startM + hours * 60;
+    const end    = minsToTime(endM);
+    const label  = start+' – '+end;
+    const overlaps = bookedRanges.some(r => startM < r.end && endM > r.start);
+    const isBlk = dayBlocked || overlaps || legacyBlk.has(start);
+        if (isBlk) return '<button class="slot-btn blocked" disabled>🔒 '+label+'</button>';
     return '<button class="slot-btn" onclick="selectSlot(this,\''+start+'\',\''+end+'\')">'+label+'</button>';
   }).join('');
 }
