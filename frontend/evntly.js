@@ -1874,6 +1874,20 @@ async function loadMyBookings() {
 }
 
 // ─── OWNER: BOOKING REQUESTS ──────────────────────────────────────
+async function markManualPaid(bookingId) {
+  if (!confirm('Mark this booking as fully paid?')) return;
+  try {
+    await api(`/bookings/${bookingId}/payment`, {
+      method: 'PATCH',
+      body: { paymentType: 'full', paymentMethod: 'cash' }
+    });
+    toast('Booking marked as paid! ✅', 'success');
+    loadRequests();
+    loadOverview();
+  } catch(e) {
+    toast(e.error || 'Failed to mark as paid', 'error');
+  }
+}
 async function loadRequests() {
   const container = document.getElementById('requests-list');
   try {
@@ -1915,8 +1929,10 @@ async function loadRequests() {
               <button class="btn-sm btn-sm-success" onclick="updateBookingStatus('${r._id}','confirmed')">✓ Approve & Block Slot</button>
               <button class="btn-sm btn-sm-danger"  onclick="updateBookingStatus('${r._id}','rejected')">✕ Reject</button>
             ` : ''}
-            ${r.status==='confirmed' && r.paymentStatus!=='fully_paid' && !r.cashOnVisitApproved ? `<span style="font-size:0.78rem;color:var(--muted)">Awaiting customer payment</span>` : ''}
-            ${r.status==='paid' || r.paymentStatus==='fully_paid' ? `<span style="color:var(--success);font-weight:600;font-size:0.88rem">🎉 Booking & Payment Complete</span>` : ''}
+${r.status==='confirmed' && r.paymentStatus!=='fully_paid' && !r.cashOnVisitApproved ? `
+  <span style="font-size:0.78rem;color:var(--muted)">Awaiting customer payment</span>
+  <button class="btn-sm btn-sm-success" onclick="markManualPaid('${r._id}')">💵 Mark as Paid</button>
+` : ''}            ${r.status==='paid' || r.paymentStatus==='fully_paid' ? `<span style="color:var(--success);font-weight:600;font-size:0.88rem">🎉 Booking & Payment Complete</span>` : ''}
             ${r.cashOnVisitApproved && r.status==='confirmed' ? `<span class="cash-visit-badge">🏠 Cash on Visit</span>` : ''}
           </div>
         </div>
