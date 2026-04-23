@@ -319,7 +319,7 @@ async function api(path, { method='GET', body, formData } = {}) {
   const headers = {};
   const token = localStorage.getItem('evntly_token');
   if (token) headers['Authorization'] = 'Bearer ' + token;
-  const opts = { method, headers };
+  const opts = { method, headers, cache: 'no-store' }; // ← add cache: 'no-store'
   if (formData) { opts.body = formData; }
   else if (body) { headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
   const res = await fetch(API_BASE + path, opts);
@@ -2899,11 +2899,11 @@ async function rptRender() {
   body.innerHTML = '<div class="rpt-empty">⏳ Loading…</div>';
 
   const qs = new URLSearchParams();
-  if (_rState.from)    qs.set('from',    _rState.from);
-  if (effectiveTo)     qs.set('to',      effectiveTo);
-  if (_rState.venueId) qs.set('venueId', _rState.venueId);
-  if (_rState.groupBy) qs.set('groupBy', _rState.groupBy);
-
+if (_rState.from)    qs.set('from',    _rState.from);
+if (effectiveTo)     qs.set('to',      effectiveTo);
+if (_rState.venueId) qs.set('venueId', _rState.venueId);
+if (_rState.groupBy) qs.set('groupBy', _rState.groupBy);
+qs.set('_t', Date.now()); // ← cache buster
   try {
     var content = '';
     switch(_rState.tab) {
