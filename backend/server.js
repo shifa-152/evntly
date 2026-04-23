@@ -765,10 +765,21 @@ app.patch('/api/bookings/:id/status', ownerMiddleware, async (req, res) => {
     if (status === 'confirmed' && existing.venueId && existing.date && existing.startTime) {
       const venue = await Venue.findById(existing.venueId);
       if (venue) {
+        // Legacy slot blocking
         const slot = venue.slots.find(s => s.time === existing.startTime);
         if (slot && !slot.blockedDates.includes(existing.date)) {
           slot.blockedDates.push(existing.date);
         }
+        // Block all duration ranges for this startTime on this date
+        if (!venue.blockedRanges) venue.blockedRanges = [];
+        const tMins = (t) => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+        const mTime = (m) => String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+        for (let h = 1; h <= 7; h++) {
+          const endTime = mTime(tMins(existing.startTime) + h * 60);
+          const key = `${existing.date}|${existing.startTime}-${endTime}`;
+          if (!venue.blockedRanges.includes(key)) venue.blockedRanges.push(key);
+        }
+        venue.markModified('blockedRanges');
         await venue.save();
       }
     }
