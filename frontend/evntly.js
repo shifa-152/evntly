@@ -31,8 +31,7 @@ const VENUE_EMOJIS = { 'Banquet Hall':'🏛️','Conference Center':'🏢','Gard
 // ─── UTILS ───────────────────────────────────────────────────────
 function fmt(n) { return '₹' + (n || 0).toLocaleString('en-IN'); }
 function escHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
-function imgUrl(fn) { return fn ? `${_host}/uploads/${fn}` : ''; }
-
+function imgUrl(fn) { if (!fn) return ''; if (fn.startsWith('http')) return fn; return `${_host}/uploads/${fn}`; }
 // Strict email validation — rejects mehran@gmail.com.com style
 // ─── STRICT VALIDATORS ───────────────────────────────────────────
 function isValidEmail(email) { return emailError(email) === null; }
