@@ -410,7 +410,16 @@
         <div class="form-errors-box" id="ev-errors"><ul id="ev-errors-list"></ul></div>
         <div class="dash-form-field"><label class="dash-label">Venue Name *</label><input class="dash-input" type="text" id="ev-name" /><div class="field-error" id="ev-name-err">Venue name is required</div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          <div class="dash-form-field"><label class="dash-label">Type</label><select class="dash-input" id="ev-type"><option>Banquet Hall</option><option>Conference Center</option><option>Garden</option><option>Rooftop</option><option>Studio</option></select></div>
+<option>Banquet Hall</option>
+<option>Conference Center</option>
+<option>Garden</option>
+<option>Rooftop</option>
+<option>Studio</option>
+<option>Farmhouse</option>
+<option>Resort</option>
+<option>Restaurant</option>
+<option>Club</option>
+<option>Other</option>
           <div class="dash-form-field"><label class="dash-label">Area / Locality *</label><input class="dash-input" type="text" id="ev-location" oninput="clearFE('ev-loc-err')" /><div class="field-error" id="ev-loc-err">Location is required</div></div>
         </div>
         <div class="dash-form-field"><label class="dash-label">Full Address *</label><input class="dash-input" type="text" id="ev-address" placeholder="101, Sea View Complex, Hill Road" oninput="clearFE('ev-addr-err')" /><div class="field-error" id="ev-addr-err">Full address is required</div></div>
@@ -646,17 +655,10 @@
 
 <!-- TOAST -->
 <div class="toast-container" id="toast-container"></div>
-<<<<<<< HEAD
-<script>
-  window.RAZORPAY_KEY_ID = 'rzp_test_SctkijsoF2o09x';  // your actual key
-</script>
-=======
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
-  window.RAZORPAY_KEY_ID = 'rzp_test_SctkijsoF2o09x';  // your actual key
+  window.RAZORPAY_KEY_ID = 'rzp_test_SctkijsoF2o09x';
 </script>
-
->>>>>>> 33055acf80659a9a8a14c9a6b2df2d5d6b5b7408
 <script src="evntly.js"></script>
 </body>
 </html>
