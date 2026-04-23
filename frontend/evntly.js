@@ -925,14 +925,14 @@ const dayBlocked = blocked.has(date);
 const legacyBlk  = new Set();
 (v.slots||[]).forEach(s => { if ((s.blockedDates||[]).includes(date)) legacyBlk.add(s.time); });
 
-// Build list of booked ranges for overlap checking
+// Build booked ranges for overlap checking
 const bookedRanges = [];
 (v.blockedRanges || []).forEach(key => {
   const m = key.match(/^(.+)\|(\d{2}:\d{2})-(\d{2}:\d{2})$/);
   if (m && m[1] === date) bookedRanges.push({ start: timeToMins(m[2]), end: timeToMins(m[3]) });
 });
 
-sc.innerHTML = starts.map(function(start) {
+wrap.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">' + starts.map(function(start) {
     const startM = timeToMins(start);
     const endM   = startM + hours * 60;
     const end    = minsToTime(endM);
