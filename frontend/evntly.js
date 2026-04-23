@@ -2956,7 +2956,7 @@ function rptDownload(path) {
 }
 async function rptFetchAndDownload(url, token) {
   try {
-    const res = await fetch(API_BASE + url, { headers: { 'Authorization': 'Bearer ' + token } });
+    const res = await fetch(API_BASE + url, { cache: 'no-store', headers: { 'Authorization': 'Bearer ' + token } });
     const blob = await res.blob();
     const cd   = res.headers.get('content-disposition') || '';
     const fn   = cd.match(/filename="([^"]+)"/)?.[1] || 'report.csv';
