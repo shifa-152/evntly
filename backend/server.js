@@ -1597,8 +1597,15 @@ app.get('/api/owner/reports/summary', ownerMiddleware, async (req, res) => {
 
     // Single source of truth — fetch all bookings for owner's venues
     const all = await Booking.find({ venueId: { $in: venueIds } });
-console.log('Sample booking dates:', all.slice(0,3).map(b => ({ date: b.date, type: typeof b.date })));
-console.log('Filter range:', { from, to });
+console.log('Total bookings found:', all.length);
+console.log('Sample dates:', all.slice(0, 3).map(b => ({
+  date: b.date,
+  createdAt: b.createdAt,
+  status: b.status,
+  total: b.total,
+  keys: Object.keys(b._doc)
+})));
+
     // Normalize date to YYYY-MM-DD string regardless of how it's stored
     const toDateStr = (d) => new Date(d).toISOString().split('T')[0];
 
