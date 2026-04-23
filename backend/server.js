@@ -1591,82 +1591,85 @@ async function getOwnerBookings(ownerId, { from, to, venueId, status }={}) {
 app.get('/api/owner/reports/summary', ownerMiddleware, async (req, res) => {
   try {
     const { from, to } = req.query;
-
     const { venues } = await getOwnerBookings(req.user.id, {});
     const venueIds = venues.map(v => v._id);
 
-    // Single source of truth — fetch all bookings for owner's venues
     const all = await Booking.find({ venueId: { $in: venueIds } });
-console.log('Total bookings found:', all.length);
-console.log('Sample dates:', all.slice(0, 3).map(b => ({
-  date: b.date,
-  createdAt: b.createdAt,
-  status: b.status,
-  total: b.total,
-  keys: Object.keys(b._doc)
-})));
 
-    // Normalize date to YYYY-MM-DD string regardless of how it's stored
-    const toDateStr = (d) => new Date(d).toISOString().split('T')[0];
+    // Push the date filter into MongoDB itself — works for both Date objects and strings
+    const query = { venueId: { $in: venueIds } };
+    if (from || to) {
+      query.$or = [
+        // If stored as Date object
+        {
+          date: {
+            ...(from ? { $gte: new Date(from) } : {}),
+            ...(to   ? { $lte: new Date(to + 'T23:59:59.999Z') } : {}),
+          }
+        },
+        // If stored as YYYY-MM-DD string
+        {
+          date: {
+            ...(from ? { $gte: from } : {}),
+            ...(to   ? { $lte: to }   : {}),
+          }
+        }
+      ];
+    }
 
-    // Apply from/to filter for the main stats
-    const bookings = all.filter(b => {
-      const d = toDateStr(b.date);
-      if (from && d < from) return false;
-      if (to   && d > to)   return false;
-      return true;
-    });
+    const bookings = await Booking.find(query);
 
     const paid = bookings.filter(b => ['confirmed', 'paid'].includes(b.status));
     const revenue = paid.reduce((s, b) => s + (b.total || 0), 0);
 
-    // Month-over-month using the full unfiltered set
+    // Month-over-month always uses full unfiltered set
     const now = new Date();
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
-    const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
     const thisMonth = all.filter(b => {
-      const d = toDateStr(b.date);
+      const d = new Date(b.date);
       return d >= thisMonthStart && ['confirmed', 'paid'].includes(b.status);
     });
 
     const lastMonth = all.filter(b => {
-      const d = toDateStr(b.date);
+      const d = new Date(b.date);
       return d >= lastMonthStart && d <= lastMonthEnd && ['confirmed', 'paid'].includes(b.status);
     });
 
     const thisRev = thisMonth.reduce((s, b) => s + (b.total || 0), 0);
     const lastRev = lastMonth.reduce((s, b) => s + (b.total || 0), 0);
-    const growth = lastRev > 0
+    const growth  = lastRev > 0
       ? Math.round((thisRev - lastRev) / lastRev * 100)
       : (thisRev > 0 ? 100 : 0);
 
-    // Compute actual top venue by revenue
     const venueRevMap = {};
     paid.forEach(b => {
       const key = String(b.venueId);
       venueRevMap[key] = (venueRevMap[key] || 0) + (b.total || 0);
     });
-    const topVenue = venues
-      .sort((a, b) => (venueRevMap[String(b._id)] || 0) - (venueRevMap[String(a._id)] || 0))[0];
+    const topVenue = [...venues].sort(
+      (a, b) => (venueRevMap[String(b._id)] || 0) - (venueRevMap[String(a._id)] || 0)
+    )[0];
 
     res.json({
-      totalRevenue:       revenue,
-      totalBookings:      bookings.length,
-      confirmedBookings:  paid.length,
-      pendingBookings:    bookings.filter(b => b.status === 'pending').length,
-      cancelledBookings:  bookings.filter(b => ['rejected', 'cancelled'].includes(b.status)).length,
-      venueCount:         venues.length,
-      avgBookingValue:    paid.length ? Math.round(revenue / paid.length) : 0,
-      conversionRate:     bookings.length ? Math.round(paid.length / bookings.length * 100) : 0,
-      thisMonthRevenue:   thisRev,
-      lastMonthRevenue:   lastRev,
-      revenueGrowth:      growth,
-      topVenue:           topVenue ? topVenue.name : '',
+      totalRevenue:      revenue,
+      totalBookings:     bookings.length,
+      confirmedBookings: paid.length,
+      pendingBookings:   bookings.filter(b => b.status === 'pending').length,
+      cancelledBookings: bookings.filter(b => ['rejected', 'cancelled'].includes(b.status)).length,
+      venueCount:        venues.length,
+      avgBookingValue:   paid.length ? Math.round(revenue / paid.length) : 0,
+      conversionRate:    bookings.length ? Math.round(paid.length / bookings.length * 100) : 0,
+      thisMonthRevenue:  thisRev,
+      lastMonthRevenue:  lastRev,
+      revenueGrowth:     growth,
+      topVenue:          topVenue ? topVenue.name : '',
     });
 
   } catch (e) {
+    console.error('Summary error:', e);
     res.status(500).json({ error: e.message });
   }
 });
