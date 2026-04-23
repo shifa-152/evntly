@@ -3,9 +3,11 @@
 // ═══════════════════════════════════════════════════════════════
 
 // ─── CONFIG ──────────────────────────────────────────────────────
-const _host = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? 'https://evntly-28mf.vercel.app'
-  : `${location.protocol}//${location.hostname}:5000`;
+// const _host = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+//   ? 'https://evntly-28mf.vercel.app'
+//   : `${location.protocol}//${location.hostname}:5000`;
+// const API_BASE = _host + '/api';
+const _host = 'https://evntly-28mf.vercel.app';
 const API_BASE = _host + '/api';
 // Debug: uncomment to verify API endpoint
 // console.log('API_BASE:', API_BASE);
