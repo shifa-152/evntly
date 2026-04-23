@@ -883,9 +883,11 @@ footer { background: var(--dark); padding: 60px 48px 32px; }
 // ─────────────────────────────────────────────────────────────────────────────
 //  CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
-const _host = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? 'https://evntly-28mf.vercel.app'
-  : `${location.protocol}//${location.hostname}:5000`;
+// const _host = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+//   ? 'https://evntly-28mf.vercel.app'
+//   : 'https://evntly-28mf.vercel.app';
+// const API_BASE = _host + '/api';
+const _host = 'https://evntly-28mf.vercel.app';
 const API_BASE = _host + '/api';
 const RAZORPAY_KEY_ID = 'rzp_test_SctkijsoF2o09x';
 
