@@ -27,6 +27,13 @@ let pendingPaymentBooking = null;
 let selectedReviewRating  = 0;
 
 const VENUE_EMOJIS = { 'Banquet Hall':'🏛️','Conference Center':'🏢','Garden':'🌿','Rooftop':'🌆','Studio':'🎬' };
+function toggleCustomType(prefix) {
+  const sel = document.getElementById(prefix + '-type');
+  const custom = document.getElementById(prefix + '-type-custom');
+  if (!custom) return;
+  custom.style.display = sel.value === '__custom__' ? '' : 'none';
+  if (sel.value !== '__custom__') custom.value = '';
+}
 
 // ─── UTILS ───────────────────────────────────────────────────────
 function fmt(n) { return '₹' + (n || 0).toLocaleString('en-IN'); }
@@ -2243,8 +2250,9 @@ async function submitAddVenue() {
   try {
     const fd = new FormData();
     fd.append('name',        document.getElementById('av-name').value.trim());
-    fd.append('type',        document.getElementById('av-type').value);
-    fd.append('location',    document.getElementById('av-location').value.trim());
+const avTypeRaw = document.getElementById('av-type').value;
+const avTypeCustom = document.getElementById('av-type-custom')?.value.trim();
+fd.append('type', avTypeRaw === '__custom__' ? (avTypeCustom || 'Other') : avTypeRaw);    fd.append('location',    document.getElementById('av-location').value.trim());
     fd.append('address',     document.getElementById('av-address')?.value.trim() || '');
     fd.append('city',        document.getElementById('av-city')?.value.trim() || '');
     fd.append('state',       document.getElementById('av-state')?.value.trim() || '');
@@ -2302,8 +2310,16 @@ async function openEditVenue(venueId) {
     evCoverFile = null; evGalleryFiles = []; evRemovedImages = [];
     document.getElementById('ev-id').value       = v._id;
     document.getElementById('ev-name').value     = v.name || '';
-    document.getElementById('ev-type').value     = v.type || 'Banquet Hall';
-    document.getElementById('ev-location').value = v.location || '';
+const knownTypes = ['Banquet Hall','Conference Center','Garden','Rooftop','Studio'];
+const evTypeSel = document.getElementById('ev-type');
+const evTypeCust = document.getElementById('ev-type-custom');
+if (knownTypes.includes(v.type)) {
+  evTypeSel.value = v.type;
+  if (evTypeCust) { evTypeCust.style.display = 'none'; evTypeCust.value = ''; }
+} else {
+  evTypeSel.value = '__custom__';
+  if (evTypeCust) { evTypeCust.style.display = ''; evTypeCust.value = v.type || ''; }
+}    document.getElementById('ev-location').value = v.location || '';
     const _evAddr  = document.getElementById('ev-address');  if(_evAddr)  _evAddr.value  = v.address  || '';
     const _evCity  = document.getElementById('ev-city');     if(_evCity)  _evCity.value  = v.city     || '';
     const _evState = document.getElementById('ev-state');    if(_evState) _evState.value = v.state    || '';
@@ -2364,8 +2380,9 @@ async function submitEditVenue() {
   try {
     const fd = new FormData();
     fd.append('name',        document.getElementById('ev-name').value.trim());
-    fd.append('type',        document.getElementById('ev-type').value);
-    fd.append('location',    document.getElementById('ev-location').value.trim());
+const evTypeRaw = document.getElementById('ev-type').value;
+const evTypeCustom = document.getElementById('ev-type-custom')?.value.trim();
+fd.append('type', evTypeRaw === '__custom__' ? (evTypeCustom || 'Other') : evTypeRaw);    fd.append('location',    document.getElementById('ev-location').value.trim());
     fd.append('address',     document.getElementById('ev-address')?.value.trim() || '');
     fd.append('city',        document.getElementById('ev-city')?.value.trim() || '');
     fd.append('state',       document.getElementById('ev-state')?.value.trim() || '');

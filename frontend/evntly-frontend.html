@@ -661,8 +661,15 @@ footer { background: var(--dark); padding: 60px 48px 32px; }
         <div class="form-errors-box" id="av-errors"><ul id="av-errors-list"></ul></div>
         <div class="dash-form-field"><label class="dash-label">Venue Name *</label><input class="dash-input" type="text" id="av-name" placeholder="The Grand Ballroom" /><div class="field-error" id="av-name-err">Venue name is required</div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          <div class="dash-form-field"><label class="dash-label">Type</label><select class="dash-input" id="av-type"><option>Banquet Hall</option><option>Conference Center</option><option>Garden</option><option>Rooftop</option><option>Studio</option></select></div>
-          <div class="dash-form-field"><label class="dash-label">Location *</label><input class="dash-input" type="text" id="av-location" placeholder="Bandra, Mumbai" /><div class="field-error" id="av-loc-err">Location is required</div></div>
+<select class="dash-input" id="av-type" onchange="toggleCustomType('av')">
+  <option>Banquet Hall</option>
+  <option>Conference Center</option>
+  <option>Garden</option>
+  <option>Rooftop</option>
+  <option>Studio</option>
+  <option value="__custom__">Other (Custom) ✏️</option>
+</select>
+<input class="dash-input" type="text" id="av-type-custom" placeholder="e.g. Farmhouse, Terrace, Club House…" style="display:none;margin-top:8px" />          <div class="dash-form-field"><label class="dash-label">Location *</label><input class="dash-input" type="text" id="av-location" placeholder="Bandra, Mumbai" /><div class="field-error" id="av-loc-err">Location is required</div></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
           <div class="dash-form-field"><label class="dash-label">Capacity * (guests)</label><input class="dash-input" type="number" id="av-capacity" placeholder="200" min="1" step="1" /><div class="field-error" id="av-cap-err">Capacity must be ≥ 1</div></div>
@@ -733,8 +740,15 @@ footer { background: var(--dark); padding: 60px 48px 32px; }
         <input type="hidden" id="ev-id" />
         <div class="dash-form-field"><label class="dash-label">Venue Name *</label><input class="dash-input" type="text" id="ev-name" /><div class="field-error" id="ev-name-err">Venue name is required</div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          <div class="dash-form-field"><label class="dash-label">Type</label><select class="dash-input" id="ev-type"><option>Banquet Hall</option><option>Conference Center</option><option>Garden</option><option>Rooftop</option><option>Studio</option></select></div>
-          <div class="dash-form-field"><label class="dash-label">Location *</label><input class="dash-input" type="text" id="ev-location" /><div class="field-error" id="ev-loc-err">Location is required</div></div>
+<select class="dash-input" id="ev-type" onchange="toggleCustomType('ev')">
+  <option>Banquet Hall</option>
+  <option>Conference Center</option>
+  <option>Garden</option>
+  <option>Rooftop</option>
+  <option>Studio</option>
+  <option value="__custom__">Other (Custom) ✏️</option>
+</select>
+<input class="dash-input" type="text" id="ev-type-custom" placeholder="e.g. Farmhouse, Terrace, Club House…" style="display:none;margin-top:8px" />          <div class="dash-form-field"><label class="dash-label">Location *</label><input class="dash-input" type="text" id="ev-location" /><div class="field-error" id="ev-loc-err">Location is required</div></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
           <div class="dash-form-field"><label class="dash-label">Capacity *</label><input class="dash-input" type="number" id="ev-capacity" min="1" step="1" /><div class="field-error" id="ev-cap-err">Capacity must be ≥ 1</div></div>
