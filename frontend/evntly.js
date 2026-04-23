@@ -2342,62 +2342,92 @@ async function openEditVenue(venueId) {
     const v = await api('/venues/' + venueId);
     editVenueData = v;
     evCoverFile = null; evGalleryFiles = []; evRemovedImages = [];
-    document.getElementById('ev-id').value       = v._id;
-    document.getElementById('ev-name').value     = v.name || '';
-const knownTypes = ['Banquet Hall','Conference Center','Garden','Rooftop','Studio'];
-const evTypeSel = document.getElementById('ev-type');
-const evTypeCust = document.getElementById('ev-type-custom');
-if (knownTypes.includes(v.type)) {
-  evTypeSel.value = v.type;
-  if (evTypeCust) { evTypeCust.style.display = 'none'; evTypeCust.value = ''; }
-} else {
-  evTypeSel.value = '__custom__';
-  if (evTypeCust) { evTypeCust.style.display = ''; evTypeCust.value = v.type || ''; }
-}    document.getElementById('ev-location').value = v.location || '';
-    const _evAddr  = document.getElementById('ev-address');  if(_evAddr)  _evAddr.value  = v.address  || '';
-    const _evCity  = document.getElementById('ev-city');     if(_evCity)  _evCity.value  = v.city     || '';
-    const _evState = document.getElementById('ev-state');    if(_evState) _evState.value = v.state    || '';
-    const _evPin   = document.getElementById('ev-pincode');  if(_evPin)   _evPin.value   = v.pincode  || '';
-    const _evVE    = document.getElementById('ev-venue-email'); if(_evVE) _evVE.value    = v.venueEmail || '';
-    const _evVP    = document.getElementById('ev-venue-phone'); if(_evVP) _evVP.value    = v.venuePhone || '';
-    document.getElementById('ev-capacity').value = v.capacity || '';
-    const evVS = document.getElementById('ev-venue-size'); if(evVS) evVS.value = v.venueSize || '';
-    document.getElementById('ev-price1').value   = v.price1hr || '';
+
+    // Safe setter — silently skips missing fields
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+
+    setVal('ev-id',          v._id);
+    setVal('ev-name',        v.name        || '');
+    setVal('ev-location',    v.location    || '');
+    setVal('ev-address',     v.address     || '');
+    setVal('ev-city',        v.city        || '');
+    setVal('ev-state',       v.state       || '');
+    setVal('ev-pincode',     v.pincode     || '');
+    setVal('ev-venue-email', v.venueEmail  || '');
+    setVal('ev-venue-phone', v.venuePhone  || '');
+    setVal('ev-capacity',    v.capacity    || '');
+    setVal('ev-venue-size',  v.venueSize   || '');
+    setVal('ev-price1',      v.price1hr    || '');
+    setVal('ev-plate',       v.platePrice  || 0);
+    setVal('ev-desc',        v.description || '');
+    setVal('ev-open-time',   v.openTime    || '09:00');
+    setVal('ev-close-time',  v.closeTime   || '22:00');
+
     for (let h = 2; h <= 7; h++) {
-      const el = document.getElementById('ev-price' + h); if(el) el.value = v['price'+h+'hr'] || '';
+      setVal('ev-price' + h, v['price' + h + 'hr'] || '');
     }
-    document.getElementById('ev-plate').value    = v.platePrice || 0;
-    document.getElementById('ev-desc').value     = v.description || '';
+
+    const knownTypes = ['Banquet Hall','Conference Center','Garden','Rooftop','Studio'];
+    const evTypeSel  = document.getElementById('ev-type');
+    const evTypeCust = document.getElementById('ev-type-custom');
+    if (evTypeSel) {
+      if (knownTypes.includes(v.type)) {
+        evTypeSel.value = v.type;
+        if (evTypeCust) { evTypeCust.style.display = 'none'; evTypeCust.value = ''; }
+      } else {
+        evTypeSel.value = '__custom__';
+        if (evTypeCust) { evTypeCust.style.display = ''; evTypeCust.value = v.type || ''; }
+      }
+    }
+
     const coverDiv = document.getElementById('ev-current-cover');
-    coverDiv.innerHTML = v.coverImage
-      ? `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--cream);border-radius:6px;border:1px solid var(--border)"><img src="${imgUrl(v.coverImage)}" style="width:80px;height:60px;object-fit:cover;border-radius:4px" onerror="this.style.display='none'" /><div><div style="font-size:0.82rem;font-weight:600">Current Cover</div><div style="font-size:0.72rem;color:var(--muted)">${v.coverImage}</div></div></div>`
-      : `<div style="font-size:0.82rem;color:var(--muted)">No cover image set</div>`;
-    document.getElementById('ev-cover-preview').innerHTML = '';
+    if (coverDiv) {
+      coverDiv.innerHTML = v.coverImage
+        ? `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--cream);border-radius:6px;border:1px solid var(--border)"><img src="${imgUrl(v.coverImage)}" style="width:80px;height:60px;object-fit:cover;border-radius:4px" onerror="this.style.display='none'" /><div><div style="font-size:0.82rem;font-weight:600">Current Cover</div><div style="font-size:0.72rem;color:var(--muted)">${v.coverImage}</div></div></div>`
+        : `<div style="font-size:0.82rem;color:var(--muted)">No cover image set</div>`;
+    }
+
+    const coverPreview = document.getElementById('ev-cover-preview');
+    if (coverPreview) coverPreview.innerHTML = '';
+
     const existingGallery = document.getElementById('ev-existing-gallery');
-    existingGallery.innerHTML = (v.images || []).length
-      ? v.images.map(fn => `<div class="gallery-item" id="eg-${fn.replace(/\./g,'_')}"><img src="${imgUrl(fn)}" alt="venue image" onerror="this.style.display='none'" /><button class="remove-img-btn" onclick="removeExistingImage('${fn}',this)">✕ Remove</button></div>`).join('')
-      : `<div style="color:var(--muted);font-size:0.85rem">No gallery images yet</div>`;
-    document.getElementById('ev-gallery-previews').innerHTML = '';
+    if (existingGallery) {
+      existingGallery.innerHTML = (v.images || []).length
+        ? v.images.map(fn => `<div class="gallery-item" id="eg-${fn.replace(/\./g,'_')}"><img src="${imgUrl(fn)}" alt="venue image" onerror="this.style.display='none'" /><button class="remove-img-btn" onclick="removeExistingImage('${fn}',this)">✕ Remove</button></div>`).join('')
+        : `<div style="color:var(--muted);font-size:0.85rem">No gallery images yet</div>`;
+    }
+
+    const galleryPreviews = document.getElementById('ev-gallery-previews');
+    if (galleryPreviews) galleryPreviews.innerHTML = '';
+
     evSlots = JSON.parse(JSON.stringify(v.slots || []));
     renderSlots('ev', evSlots);
-    const _ot=document.getElementById('ev-open-time'); if(_ot)_ot.value=v.openTime||'09:00';
-    const _ct=document.getElementById('ev-close-time'); if(_ct)_ct.value=v.closeTime||'22:00';
     updateHoursPreview('ev');
-    document.getElementById('ev-hotels').innerHTML = '';
-    (v.cateringHotels || []).forEach(h => addHotelField('ev', h));
+
+    const evHotels = document.getElementById('ev-hotels');
+    if (evHotels) {
+      evHotels.innerHTML = '';
+      (v.cateringHotels || []).forEach(h => addHotelField('ev', h));
+    }
+
     const tbody = document.getElementById('ev-amenity-tbody');
-    tbody.innerHTML = '';
-    (v.amenities || []).forEach(a => {
-      const tr = document.createElement('tr'); tr.dataset.key = a.key || 'am_' + Date.now();
-      tr.innerHTML = `<td>${escHtml(a.label)}</td><td><input class="price-field" type="number" value="${a.price||0}" min="0" /></td><td><button class="remove-amenity-btn" onclick="removeAmenityRow(this)">✕</button></td>`;
-      tbody.appendChild(tr);
-    });
-    document.getElementById('edit-venue-nav').style.display = '';
+    if (tbody) {
+      tbody.innerHTML = '';
+      (v.amenities || []).forEach(a => {
+        const tr = document.createElement('tr');
+        tr.dataset.key = a.key || 'am_' + Date.now();
+        tr.innerHTML = `<td>${escHtml(a.label)}</td><td><input class="price-field" type="number" value="${a.price||0}" min="0" /></td><td><button class="remove-amenity-btn" onclick="removeAmenityRow(this)">✕</button></td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    const editNav = document.getElementById('edit-venue-nav');
+    if (editNav) editNav.style.display = '';
     clearErrors('ev-errors');
-    switchPanel('edit-venue', document.getElementById('edit-venue-nav'));
+    switchPanel('edit-venue', editNav);
+
   } catch(e) { toast('Failed to load venue: ' + (e.error || e.message || ''), 'error'); }
 }
-
 function removeExistingImage(filename, btn) {
   evRemovedImages.push(filename);
   btn.closest('.gallery-item').remove();
