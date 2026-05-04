@@ -318,14 +318,13 @@ const planChangeRequestSchema = new mongoose.Schema({
   paymentSentAt: { type: Date },
   paymentLink:   { type: String, default: '' },
 }, { timestamps: true });
-const PlanChangeRequest = mongoose.model('PlanChangeRequest', planChangeRequestSchema);
 
-const Venue   = mongoose.model('Venue',   venueSchema);
-const User    = mongoose.model('User',    userSchema);
-const Booking = mongoose.model('Booking', bookingSchema);
-const Review  = mongoose.model('Review',  reviewSchema);
-const OwnerApplication = mongoose.model('OwnerApplication', ownerApplicationSchema);
-const HomepagePhoto    = mongoose.model('HomepagePhoto',    homepagePhotoSchema);
+const Venue             = mongoose.models.Venue             || mongoose.model('Venue',             venueSchema);
+const User              = mongoose.models.User              || mongoose.model('User',              userSchema);
+const Booking           = mongoose.models.Booking           || mongoose.model('Booking',           bookingSchema);
+const Review            = mongoose.models.Review            || mongoose.model('Review',            reviewSchema);
+const OwnerApplication  = mongoose.models.OwnerApplication  || mongoose.model('OwnerApplication',  ownerApplicationSchema);
+const HomepagePhoto     = mongoose.models.HomepagePhoto     || mongoose.model('HomepagePhoto',     homepagePhotoSchema);
 
 const platformPlanSchema = new mongoose.Schema({
   name:      { type: String, required: true, trim: true },
@@ -337,8 +336,9 @@ const platformPlanSchema = new mongoose.Schema({
   isActive:  { type: Boolean, default: true },
   sortOrder: { type: Number, default: 0 },
 }, { timestamps: true });
-const PlatformPlan = mongoose.model('PlatformPlan', platformPlanSchema);
 
+const PlatformPlan      = mongoose.models.PlatformPlan      || mongoose.model('PlatformPlan',      platformPlanSchema);
+const PlanChangeRequest = mongoose.models.PlanChangeRequest || mongoose.model('PlanChangeRequest', planChangeRequestSchema);
 async function seedDefaultPlans() {
   try {
     if (await PlatformPlan.countDocuments() === 0) {
