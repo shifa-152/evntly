@@ -192,6 +192,264 @@
   background: #fdf8f0;
   transform: translateY(-1px);
 }
+
+/* ── City dropdown in search ── */
+.sf-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  color: #1a1a1a;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 14px center;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.sf-select:focus { outline: none; border-color: #c8a96e; }
+
+/* ── Price range slider ── */
+.price-range-wrap { padding: 4px 0 2px; }
+.price-range-track {
+  position: relative;
+  height: 4px;
+  background: #e5e5e5;
+  border-radius: 4px;
+  margin: 10px 0 8px;
+}
+.price-range-fill {
+  position: absolute;
+  height: 100%;
+  background: #c8a96e;
+  border-radius: 4px;
+  pointer-events: none;
+}
+.price-range-wrap input[type=range] {
+  position: absolute;
+  width: 100%;
+  top: -7px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+.price-range-wrap input[type=range]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #c8a96e;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.18);
+  cursor: pointer;
+  pointer-events: all;
+}
+.price-range-wrap input[type=range]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #c8a96e;
+  border: 2px solid #fff;
+  cursor: pointer;
+  pointer-events: all;
+}
+.price-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: #888;
+  margin-top: 2px;
+}
+.price-labels strong { color: #1a1a1a; font-weight: 600; }
+
+/* ── FAQ section ── */
+.faq-section {
+  padding: 72px 5%;
+  background: #fff;
+  border-top: 1px solid #e5e5e5;
+}
+.faq-inner { max-width: 780px; margin: 0 auto; }
+.faq-item {
+  border-bottom: 1px solid #e5e5e5;
+  padding: 0;
+}
+.faq-q {
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 20px 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  transition: color 0.2s;
+}
+.faq-q:hover { color: #c8a96e; }
+.faq-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid #e5e5e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+  color: #888;
+  transition: border-color 0.2s, color 0.2s, transform 0.25s;
+}
+.faq-item.open .faq-icon { border-color: #c8a96e; color: #c8a96e; transform: rotate(45deg); }
+.faq-a {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.35s ease, padding 0.25s;
+  font-size: 0.92rem;
+  color: #555;
+  line-height: 1.75;
+}
+.faq-item.open .faq-a { max-height: 300px; padding-bottom: 18px; }
+
+/* ── Request a Venue section ── */
+.request-section {
+  padding: 72px 5%;
+  background: #fdf8f0;
+  border-top: 1px solid #e5e5e5;
+}
+.request-inner {
+  max-width: 820px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 52px;
+  align-items: start;
+}
+@media(max-width:700px){ .request-inner{ grid-template-columns:1fr; gap:28px; } }
+.request-form-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  padding: 28px;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.05);
+}
+.req-field { margin-bottom: 16px; }
+.req-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #888;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.req-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 14px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  color: #1a1a1a;
+  transition: border-color 0.2s;
+}
+.req-input:focus { outline: none; border-color: #c8a96e; }
+.req-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.req-success {
+  display: none;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 0.85rem;
+  color: #166534;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+/* ── Help Center & Refund Policy modals ── */
+.policy-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.policy-modal-overlay.open { display: flex; }
+.policy-modal {
+  background: #fff;
+  border-radius: 16px;
+  max-width: 680px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.policy-modal-head {
+  padding: 22px 28px;
+  border-bottom: 1px solid #e5e5e5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+.policy-modal-head h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.25rem;
+  color: #1a1a1a;
+  margin: 0;
+}
+.policy-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  color: #888;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px;
+  transition: color 0.2s;
+}
+.policy-close-btn:hover { color: #1a1a1a; }
+.policy-modal-body {
+  overflow-y: auto;
+  padding: 28px;
+  font-size: 0.9rem;
+  color: #444;
+  line-height: 1.8;
+}
+.policy-modal-body h4 {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 24px 0 8px;
+}
+.policy-modal-body h4:first-child { margin-top: 0; }
+.policy-modal-body ul { padding-left: 20px; margin: 6px 0; }
+.policy-modal-body ul li { margin-bottom: 6px; }
+.policy-badge {
+  display: inline-block;
+  background: #fdf8f0;
+  border: 1px solid #e8d9c0;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #a07840;
+  margin-left: 8px;
+  vertical-align: middle;
+}
 </style>
 </head>
 <body>
@@ -220,6 +478,8 @@
   <a onclick="scrollToFacilities();closeMobileMenu()">✨ Facilities</a>
   <a onclick="scrollToOwner();closeMobileMenu()">🏠 List Your Space</a>
   <a onclick="scrollToReviews();closeMobileMenu()">⭐ Reviews</a>
+  <a onclick="document.getElementById('faq-section').scrollIntoView({behavior:'smooth'});closeMobileMenu()">❓ FAQ</a>
+  <a onclick="document.getElementById('request-section').scrollIntoView({behavior:'smooth'});closeMobileMenu()">📋 Request a Venue</a>
   <a onclick="openModal('auth-modal');closeMobileMenu()" id="mobile-login-link">Sign In / Register</a>
 </div>
 
@@ -249,20 +509,67 @@
       <input class="sf-input" type="text" id="search-name" placeholder="Grand ballroom…" />
     </div>
     <div class="search-field">
-      <label>Location</label>
+      <label>City</label>
+      <select class="sf-select" id="search-city" onchange="document.getElementById('search-loc').value=this.value">
+        <option value="">All Cities</option>
+        <option>Mumbai</option>
+        <option>Delhi</option>
+        <option>Bangalore</option>
+        <option>Hyderabad</option>
+        <option>Chennai</option>
+        <option>Pune</option>
+        <option>Kolkata</option>
+        <option>Ahmedabad</option>
+        <option>Jaipur</option>
+        <option>Surat</option>
+        <option>Lucknow</option>
+        <option>Chandigarh</option>
+        <option>Goa</option>
+        <option>Indore</option>
+        <option>Bhopal</option>
+      </select>
+    </div>
+    <div class="search-field" style="display:none">
       <input class="sf-input" type="text" id="search-loc" placeholder="Mumbai, Delhi…" />
     </div>
     <div class="search-field">
-      <label>Date <span style="font-size:0.7rem;color:#888">(shows available venues)</span></label>
+      <label>Date <span style="font-size:0.7rem;color:#888">(available venues)</span></label>
       <input class="sf-input" type="date" id="search-date" />
     </div>
     <div class="search-field">
       <label>Min Guests</label>
       <input class="sf-input" type="number" id="search-guests" placeholder="50" min="1" />
     </div>
+    <div class="search-field" style="min-width:200px">
+      <label>Budget <span style="font-size:0.7rem;color:#888">per hour</span></label>
+      <div class="price-range-wrap" style="position:relative;margin-top:4px">
+        <div class="price-range-track">
+          <div class="price-range-fill" id="price-fill"></div>
+          <input type="range" id="price-min" min="0" max="200000" step="5000" value="0" oninput="updatePriceSlider()" />
+          <input type="range" id="price-max" min="0" max="200000" step="5000" value="200000" oninput="updatePriceSlider()" />
+        </div>
+      </div>
+      <div class="price-labels">
+        <span>₹<strong id="price-min-label">0</strong></span>
+        <span>₹<strong id="price-max-label">2,00,000</strong></span>
+      </div>
+    </div>
     <button class="btn-search" onclick="searchVenues()">Search Venues</button>
   </div>
 </section>
+<script>
+function updatePriceSlider() {
+  var mn = parseInt(document.getElementById('price-min').value);
+  var mx = parseInt(document.getElementById('price-max').value);
+  if (mn > mx) { var t=mn; mn=mx; mx=t; document.getElementById('price-min').value=mn; document.getElementById('price-max').value=mx; }
+  var pct1 = mn/200000*100, pct2 = mx/200000*100;
+  document.getElementById('price-fill').style.left = pct1+'%';
+  document.getElementById('price-fill').style.width = (pct2-pct1)+'%';
+  document.getElementById('price-min-label').textContent = mn.toLocaleString('en-IN');
+  document.getElementById('price-max-label').textContent = mx >= 200000 ? '2,00,000+' : mx.toLocaleString('en-IN');
+}
+updatePriceSlider();
+</script>
 
 <!-- ══════════════════════════════════════════════════════════════
      EVENT TYPE CATEGORY PILLS  ← NEW
@@ -415,6 +722,289 @@
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════
+     FAQ SECTION
+     ══════════════════════════════════════════════════════════════ -->
+<section class="faq-section" id="faq-section">
+  <div class="faq-inner">
+    <div class="section-header" style="text-align:left;margin-bottom:36px;padding:0">
+      <div class="section-tag">Got Questions?</div>
+      <h2 class="section-title">Frequently Asked Questions</h2>
+      <p class="section-subtitle">Everything you need to know before booking.</p>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <button class="faq-q">How do I book a venue on EVNTLY? <span class="faq-icon">+</span></button>
+      <div class="faq-a">Browse venues using the search bar above, select your preferred space, choose a date and time slot, and complete your booking with a secure Razorpay payment. You'll receive a confirmation instantly on your registered email.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <button class="faq-q">How do I cancel a booking? <span class="faq-icon">+</span></button>
+      <div class="faq-a">Log in to your account → Dashboard → My Bookings. Select the booking you wish to cancel and click "Cancel Booking". Cancellations made more than 48 hours before the event qualify for a full refund. See our Refund Policy for details.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <button class="faq-q">Is my payment secure? <span class="faq-icon">+</span></button>
+      <div class="faq-a">Yes. All payments are processed through Razorpay, one of India's most trusted payment gateways. EVNTLY never stores your card details. Transactions are encrypted with 256-bit SSL, and you can pay via UPI, net banking, cards, or wallets.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <button class="faq-q">How do I become a venue owner on EVNTLY? <span class="faq-icon">+</span></button>
+      <div class="faq-a">Scroll to the "List Your Space" section on this page, fill in the owner registration form, upload your venue proof documents, and choose a subscription plan. Our admin team reviews applications within 24–48 hours. Once approved, you can start listing venues and accepting bookings.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <button class="faq-q">Can I visit the venue before booking? <span class="faq-icon">+</span></button>
+      <div class="faq-a">Absolutely. Each venue listing includes the venue owner's contact details. You can reach out directly to schedule a site visit before confirming your booking. We strongly recommend this for large events like weddings and corporate conferences.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <button class="faq-q">What if I can't find a venue that fits my requirements? <span class="faq-icon">+</span></button>
+      <div class="faq-a">Use the "Request a Venue" form below! Tell us your date, guest count, budget, and preferred city — our team will manually match you with the best available venue owners within 24 hours.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <button class="faq-q">Are catering and other add-on services included in the price? <span class="faq-icon">+</span></button>
+      <div class="faq-a">Add-on services like catering, photography, sound systems, and floral décor are listed separately by each venue with their own pricing. You can select the services you need during the booking process. Prices shown on venue cards are base venue hire costs only.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <button class="faq-q">How do I contact EVNTLY support? <span class="faq-icon">+</span></button>
+      <div class="faq-a">You can reach us via WhatsApp (button at the bottom-right), email at <a href="mailto:hello@evntly.in" style="color:#c8a96e">hello@evntly.in</a>, or call us at <a href="tel:+919876543210" style="color:#c8a96e">+91 98765 43210</a>. We're available Monday–Saturday, 9am–7pm IST.</div>
+    </div>
+  </div>
+</section>
+<script>
+function toggleFaq(item) {
+  var isOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item.open').forEach(function(el){ el.classList.remove('open'); });
+  if (!isOpen) item.classList.add('open');
+}
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     REQUEST A VENUE SECTION
+     ══════════════════════════════════════════════════════════════ -->
+<section class="request-section" id="request-section">
+  <div class="request-inner">
+    <div>
+      <div class="section-tag">Can't Find What You Need?</div>
+      <h2 class="section-title">Request a Venue</h2>
+      <p class="section-subtitle" style="margin-top:14px">Tell us what you're looking for and we'll personally match you with the perfect venue within 24 hours — completely free.</p>
+      <div style="margin-top:28px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:12px;font-size:0.9rem;color:#555">
+          <span style="width:32px;height:32px;background:#fdf0d9;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">📋</span>
+          Fill in your event requirements
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:0.9rem;color:#555">
+          <span style="width:32px;height:32px;background:#fdf0d9;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">🔍</span>
+          Our team finds matching venues
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:0.9rem;color:#555">
+          <span style="width:32px;height:32px;background:#fdf0d9;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">📞</span>
+          We call you within 24 hours
+        </div>
+      </div>
+    </div>
+    <div class="request-form-card">
+      <div class="req-field">
+        <label class="req-label">Your Name *</label>
+        <input class="req-input" type="text" id="req-name" placeholder="Riya Sharma" />
+      </div>
+      <div class="req-grid">
+        <div class="req-field">
+          <label class="req-label">Phone *</label>
+          <input class="req-input" type="tel" id="req-phone" placeholder="+91 98765 43210" />
+        </div>
+        <div class="req-field">
+          <label class="req-label">Email</label>
+          <input class="req-input" type="email" id="req-email" placeholder="you@email.com" />
+        </div>
+      </div>
+      <div class="req-grid">
+        <div class="req-field">
+          <label class="req-label">Event Type</label>
+          <select class="req-input" id="req-type">
+            <option value="">Select type…</option>
+            <option>Wedding</option>
+            <option>Engagement</option>
+            <option>Reception</option>
+            <option>Birthday</option>
+            <option>Corporate Event</option>
+            <option>Seminar / Conference</option>
+            <option>Photoshoot</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="req-field">
+          <label class="req-label">Preferred City</label>
+          <select class="req-input" id="req-city">
+            <option value="">Any city…</option>
+            <option>Mumbai</option>
+            <option>Delhi</option>
+            <option>Bangalore</option>
+            <option>Hyderabad</option>
+            <option>Chennai</option>
+            <option>Pune</option>
+            <option>Kolkata</option>
+            <option>Ahmedabad</option>
+            <option>Jaipur</option>
+            <option>Goa</option>
+            <option>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="req-grid">
+        <div class="req-field">
+          <label class="req-label">Event Date</label>
+          <input class="req-input" type="date" id="req-date" />
+        </div>
+        <div class="req-field">
+          <label class="req-label">Guest Count</label>
+          <input class="req-input" type="number" id="req-guests" placeholder="e.g. 200" min="1" />
+        </div>
+      </div>
+      <div class="req-field">
+        <label class="req-label">Budget Range (₹)</label>
+        <select class="req-input" id="req-budget">
+          <option value="">Select budget…</option>
+          <option>Under ₹10,000</option>
+          <option>₹10,000 – ₹25,000</option>
+          <option>₹25,000 – ₹50,000</option>
+          <option>₹50,000 – ₹1,00,000</option>
+          <option>₹1,00,000 – ₹3,00,000</option>
+          <option>₹3,00,000+</option>
+        </select>
+      </div>
+      <div class="req-field">
+        <label class="req-label">Additional Requirements</label>
+        <textarea class="req-input" id="req-notes" style="height:70px;resize:vertical" placeholder="Outdoor space preferred, need catering, parking for 100 cars…"></textarea>
+      </div>
+      <button class="btn-cta" style="width:100%;margin-top:4px" onclick="submitVenueRequest()">Send Request →</button>
+      <div class="req-success" id="req-success">
+        ✅ <strong>Request received!</strong> Our team will call you within 24 hours with venue options tailored to your needs.
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+function submitVenueRequest() {
+  var name = document.getElementById('req-name').value.trim();
+  var phone = document.getElementById('req-phone').value.trim();
+  if (!name || !phone) { alert('Please enter your name and phone number.'); return; }
+  /* Wire this to your backend / email / WhatsApp API as needed */
+  var waMsg = encodeURIComponent(
+    'New Venue Request!\nName: ' + name +
+    '\nPhone: ' + phone +
+    '\nEvent: ' + (document.getElementById('req-type').value||'N/A') +
+    '\nCity: ' + (document.getElementById('req-city').value||'N/A') +
+    '\nDate: ' + (document.getElementById('req-date').value||'N/A') +
+    '\nGuests: ' + (document.getElementById('req-guests').value||'N/A') +
+    '\nBudget: ' + (document.getElementById('req-budget').value||'N/A') +
+    '\nNotes: ' + (document.getElementById('req-notes').value||'None')
+  );
+  window.open('https://wa.me/919876543210?text=' + waMsg, '_blank');
+  document.getElementById('req-success').style.display = 'block';
+  ['req-name','req-phone','req-email','req-guests','req-date','req-notes'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+}
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     HELP CENTER MODAL
+     ══════════════════════════════════════════════════════════════ -->
+<div class="policy-modal-overlay" id="help-center-modal">
+  <div class="policy-modal">
+    <div class="policy-modal-head">
+      <h3>Help Center</h3>
+      <button class="policy-close-btn" onclick="closePolicy('help-center-modal')">✕</button>
+    </div>
+    <div class="policy-modal-body">
+      <h4>Getting Started</h4>
+      <ul>
+        <li><strong>Create an account</strong> — Click "Sign In" → "Register" and fill in your details.</li>
+        <li><strong>Browse venues</strong> — Use the search bar to filter by city, date, guests, and budget.</li>
+        <li><strong>Book a venue</strong> — Click any venue card → pick a time slot → complete payment via Razorpay.</li>
+        <li><strong>Get confirmation</strong> — A booking receipt is emailed to your registered address instantly.</li>
+      </ul>
+
+      <h4>Managing Your Bookings</h4>
+      <ul>
+        <li>View all bookings under Dashboard → My Bookings.</li>
+        <li>Download receipts from the booking details page.</li>
+        <li>Cancel bookings more than 48 hours in advance for a full refund.</li>
+        <li>Leave reviews for venues you've visited under Dashboard → My Reviews.</li>
+      </ul>
+
+      <h4>Payments & Security</h4>
+      <ul>
+        <li>All payments are processed by Razorpay (PCI-DSS Level 1 certified).</li>
+        <li>Accepted: UPI, credit/debit cards, net banking, wallets.</li>
+        <li>EVNTLY never stores your card or bank details.</li>
+      </ul>
+
+      <h4>For Venue Owners</h4>
+      <ul>
+        <li>Register using the "List Your Space" form on the homepage.</li>
+        <li>Upload proof documents (venue agreement / utility bills / photos).</li>
+        <li>After admin approval (24–48 hrs), complete payment for your chosen plan.</li>
+        <li>Manage bookings, slots, and revenue from your Dashboard.</li>
+      </ul>
+
+      <h4>Contact Support</h4>
+      <p>📞 <a href="tel:+919876543210" style="color:#c8a96e">+91 98765 43210</a> &nbsp;·&nbsp; Mon–Sat, 9am–7pm IST<br>
+      ✉️ <a href="mailto:hello@evntly.in" style="color:#c8a96e">hello@evntly.in</a><br>
+      💬 <a href="https://wa.me/919876543210" target="_blank" style="color:#c8a96e">WhatsApp us</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     REFUND POLICY MODAL
+     ══════════════════════════════════════════════════════════════ -->
+<div class="policy-modal-overlay" id="refund-policy-modal">
+  <div class="policy-modal">
+    <div class="policy-modal-head">
+      <h3>Refund Policy <span class="policy-badge">Effective Jan 2025</span></h3>
+      <button class="policy-close-btn" onclick="closePolicy('refund-policy-modal')">✕</button>
+    </div>
+    <div class="policy-modal-body">
+      <h4>Cancellation by Customer</h4>
+      <ul>
+        <li><strong>More than 48 hours before the event:</strong> 100% refund to original payment method within 5–7 business days.</li>
+        <li><strong>24–48 hours before the event:</strong> 50% refund.</li>
+        <li><strong>Less than 24 hours before the event:</strong> No refund.</li>
+        <li>All cancellation requests must be submitted via Dashboard → My Bookings.</li>
+      </ul>
+
+      <h4>Cancellation by Venue Owner</h4>
+      <ul>
+        <li>If a venue owner cancels a confirmed booking, customers receive a 100% refund within 3–5 business days.</li>
+        <li>EVNTLY will also help rebook an alternative venue at no extra charge.</li>
+        <li>Repeated cancellations by venue owners may result in account suspension.</li>
+      </ul>
+
+      <h4>Subscription Plans (Venue Owners)</h4>
+      <ul>
+        <li>Subscription fees are non-refundable once the plan is activated.</li>
+        <li>If an owner's application is rejected by EVNTLY admin, any plan payment made is fully refunded.</li>
+      </ul>
+
+      <h4>Disputes & Escalations</h4>
+      <ul>
+        <li>If you believe a refund has not been processed correctly, email <a href="mailto:hello@evntly.in" style="color:#c8a96e">hello@evntly.in</a> with your booking ID.</li>
+        <li>EVNTLY will investigate and respond within 3 business days.</li>
+      </ul>
+
+      <h4>How Refunds Are Processed</h4>
+      <p>Refunds are returned to the original payment method (UPI, card, net banking, or wallet) via Razorpay. Processing time: 5–7 business days depending on your bank.</p>
+    </div>
+  </div>
+</div>
+<script>
+function openPolicy(id) { document.getElementById(id).classList.add('open'); }
+function closePolicy(id) { document.getElementById(id).classList.remove('open'); }
+document.addEventListener('click', function(e) {
+  ['help-center-modal','refund-policy-modal'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (e.target === el) el.classList.remove('open');
+  });
+});
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
      FOOTER  ← UPDATED with contact info + social links
      ══════════════════════════════════════════════════════════════ -->
 <footer>
@@ -426,10 +1016,10 @@
       <!-- ── Contact chips ── -->
       <div class="footer-contact-bar">
         <a class="footer-contact-chip" href="tel:+919876543210">
-          <span class="chip-icon">📞</span> +91 9082474598
+          <span class="chip-icon">📞</span> +91 98765 43210
         </a>
         <a class="footer-contact-chip" href="mailto:hello@evntly.in">
-          <span class="chip-icon">✉️</span> pawaskarshifa70@gmail.com
+          <span class="chip-icon">✉️</span> hello@evntly.in
         </a>
         <span class="footer-contact-chip">
           <span class="chip-icon">📍</span> Mumbai, India
@@ -442,7 +1032,7 @@
       <!-- ── Social media icons ── -->
       <div class="footer-social">
         <!-- Instagram -->
-        <a href="https://www.instagram.com/aalishanvibe" target="_blank" rel="noopener" aria-label="Instagram">
+        <a href="https://instagram.com/evntly" target="_blank" rel="noopener" aria-label="Instagram">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
         </a>
         <!-- Facebook -->
@@ -458,7 +1048,7 @@
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
         </a>
         <!-- WhatsApp -->
-        <a href="https://wa.me/919082474598" target="_blank" rel="noopener" aria-label="WhatsApp">
+        <a href="https://wa.me/919876543210" target="_blank" rel="noopener" aria-label="WhatsApp">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
         </a>
       </div>
@@ -474,9 +1064,11 @@
 
     <div class="footer-col">
       <h5>Support</h5>
-      <a>Help Center</a>
+      <a style="cursor:pointer" onclick="openPolicy('help-center-modal')">Help Center</a>
       <a href="mailto:hello@evntly.in">Contact Us</a>
-      <a>Refund Policy</a>
+      <a style="cursor:pointer" onclick="openPolicy('refund-policy-modal')">Refund Policy</a>
+      <a style="cursor:pointer" onclick="document.getElementById('faq-section').scrollIntoView({behavior:'smooth'})">FAQ</a>
+      <a style="cursor:pointer" onclick="document.getElementById('request-section').scrollIntoView({behavior:'smooth'})">Request a Venue</a>
     </div>
 
     <div class="footer-col">
