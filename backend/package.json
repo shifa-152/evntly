@@ -1,1 +1,0 @@
- {"scripts":{"build":"echo no build needed","start":"node backend/server.js","install":"cd backend && npm install"}} 
