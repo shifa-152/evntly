@@ -45,7 +45,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const CLIENT_URL = process.env.CLIENT_URL || 'https://evntly-28mf.vercel.app';
+const CLIENT_URL = process.env.CLIENT_URL || 'https://evntly-bf25.vercel.app';
 const BRAND = 'EVNTLY';
 
 async function sendMail({ to, subject, html }) {
@@ -92,6 +92,7 @@ app.use(cors({
       'http://localhost:5500',
       'http://127.0.0.1:5500',
       'https://evntly-28mf.vercel.app',
+      'https://evntly-production-c766.up.railway.app/',
     ];
     if (process.env.CLIENT_URL) allowed.push(process.env.CLIENT_URL);
     if (allowed.includes(origin)) return callback(null, true);
