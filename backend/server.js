@@ -86,17 +86,16 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cors({
   origin: function(origin, callback) {
     if (!origin) return callback(null, true);
-    const allowed = [
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'http://localhost:5500',
-      'http://127.0.0.1:5500',
-      'https://evntly-production-c766.up.railway.app',
-      'https://evntly-production-c766.up.railway.app/',
-    ];
-    if (process.env.CLIENT_URL) allowed.push(process.env.CLIENT_URL);
-    if (allowed.includes(origin)) return callback(null, true);
-    return callback(null, true);
+    if (
+      origin.endsWith('.vercel.app') ||
+      origin.endsWith('.railway.app') ||
+      origin === 'http://localhost:3000' ||
+      origin === 'http://localhost:5173' ||
+      origin === 'http://127.0.0.1:5500'
+    ) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
