@@ -91,7 +91,7 @@ app.use(cors({
       'http://127.0.0.1:3000',
       'http://localhost:5500',
       'http://127.0.0.1:5500',
-      'https://evntly-28mf.vercel.app',
+      'https://evntly-production-c766.up.railway.app',
       'https://evntly-production-c766.up.railway.app/',
     ];
     if (process.env.CLIENT_URL) allowed.push(process.env.CLIENT_URL);
