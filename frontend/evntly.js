@@ -7,7 +7,7 @@
 //   ? 'https://evntly-28mf.vercel.app'
 //   : 'https://evntly-28mf.vercel.app';
 // const API_BASE = _host + '/api';
-const _host = 'https://evntly-28mf.vercel.app';
+const _host = 'https://evntly-production.up.railway.app';
 const API_BASE = _host + '/api';
 // Debug: uncomment to verify API endpoint
 // console.log('API_BASE:', API_BASE);
@@ -535,7 +535,7 @@ async function loadOwnerPlans() {
   // Then try to load from API and re-render with live data
   try {
     const host = (location.hostname==='localhost'||location.hostname==='127.0.0.1')
-      ? 'https://evntly-28mf.vercel.app' : 'https://evntly-28mf.vercel.app';
+      ? 'https://evntly-production-c766.up.railway.app' : 'https://evntly-production-c766.up.railway.app';
     const res  = await fetch(host + '/api/plans');
     if (res.ok) {
       const plans = await res.json();
