@@ -32,36 +32,23 @@ const JWT_SECRET = process.env.JWT_SECRET || 'evntly_secret_key_change_in_prod';
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const CLIENT_URL = process.env.CLIENT_URL || 'https://evntly-bf25.vercel.app';
 const BRAND = 'EVNTLY';
 
 async function sendMail({ to, subject, html }) {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.log('📧 [Email skipped — no EMAIL_USER/EMAIL_PASS in .env]');
-    console.log('   To:', to, '| Subject:', subject);
-    return;
-  }
   try {
-    await transporter.sendMail({
-      from: `"${BRAND}" <${process.env.EMAIL_USER}>`,
-      to, subject, html,
+    await resend.emails.send({
+      from: 'EVNTLY <onboarding@resend.dev>',
+      to,
+      subject,
+      html,
     });
-    console.log('📧 Email sent to', to);
-  } catch(e) {
-    console.error('📧 Email error:', e.message);
+    console.log('Email sent to', to);
+  } catch (e) {
+    console.error('Email error:', e);
   }
 }
 
