@@ -10,7 +10,14 @@ const reviewSchema = new mongoose.Schema({
   photos:       [{ type: String }],   // base64 data-URIs
   createdAt:    { type: Date, default: Date.now },
 });
-
+// Add this BEFORE venueSchema definition
+const offerSchema = new mongoose.Schema({
+  title:       { type: String, required: true, trim: true },
+  description: { type: String, trim: true },
+  image:       { type: String }, // filename from upload
+  active:      { type: Boolean, default: true },
+  createdAt:   { type: Date, default: Date.now },
+});
 // ── Venue schema ─────────────────────────────────────────────────────────────
 const venueSchema = new mongoose.Schema({
   name:      { type: String, required: true, trim: true },
@@ -20,7 +27,8 @@ const venueSchema = new mongoose.Schema({
   location:  { type: String, required: true },
   description: { type: String },
   capacity:  { type: Number, required: true },
-  price:     { type: Number, required: true },     // ₹ per hour (base)
+  price:     { type: Number, required: true },  
+  offer: offerSchema,   // ₹ per hour (base)
 
   // Images — stored as base64 data-URIs (for self-hosted; swap to URLs for cloud storage)
   images: [{ type: String }],

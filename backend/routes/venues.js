@@ -162,5 +162,28 @@ router.get('/reviews/all', async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+// ── POST /api/venues/:id/offer  (owner only) ──────────────────────────────
+router.post('/:id/offer', protect, restrictTo('owner'), async (req, res) => {
+  try {
+    const venue = await Venue.findOne({ _id: req.params.id, owner: req.user._id });
+    if (!venue) return res.status(404).json({ error: 'Venue not found' });
+    const { title, description, active } = req.body;
+    if (!title) return res.status(400).json({ error: 'Offer title is required' });
+    venue.offer = { title, description, active: active !== false };
+    if (req.file) venue.offer.image = req.file.filename;
+    await venue.save();
+    res.json(venue);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
+// ── DELETE /api/venues/:id/offer  (owner only) ────────────────────────────
+router.delete('/:id/offer', protect, restrictTo('owner'), async (req, res) => {
+  try {
+    const venue = await Venue.findOne({ _id: req.params.id, owner: req.user._id });
+    if (!venue) return res.status(404).json({ error: 'Venue not found' });
+    venue.offer = undefined;
+    await venue.save();
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 module.exports = router;
