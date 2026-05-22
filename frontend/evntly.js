@@ -3322,8 +3322,7 @@ async function cpConfirm() {
 async function loadOffersPanel() {
   const container = document.getElementById('offers-content');
   if (!container) return;
-  const container = document.getElementById('offers-content');
-  if (!container) return;
+ 
 
   // ── Date defaults ──────────────────────────────────────────────
   const ofToday = new Date().toISOString().split('T')[0];
