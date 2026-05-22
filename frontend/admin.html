@@ -547,7 +547,176 @@ function toast(msg, type='info'){
   w.appendChild(el);
   setTimeout(()=>{ el.style.animation='slideOut .3s ease forwards'; setTimeout(()=>el.remove(),300); },3500);
 }
+// ─── OFFERS ──────────────────────────────────────────────────────────────────
+async function loadOffersPanel() {
+  const container = document.getElementById('offers-content');
+  try {
+    const data = await api('/owner/stats');
+    const venues = data.venues || [];
+    if (!venues.length) {
+      container.innerHTML = `<div class="error-state"><div class="error-icon">🎁</div><h3>No venues yet</h3><p>Add a venue first to create offers.</p></div>`;
+      return;
+    }
+    container.innerHTML = venues.map(v => {
+      const o = v.offer;
+      return `
+        <div class="offer-card">
+          ${o?.image ? `<img class="offer-card-img" src="${imgUrl(o.image)}" alt="offer" />` : `<div class="offer-card-img" style="display:flex;align-items:center;justify-content:center;font-size:3rem">🎁</div>`}
+          <div class="offer-card-body">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div>
+                <div style="font-weight:700;color:var(--dark);font-size:1rem">${escHtml(v.name)}</div>
+                <div style="font-size:0.78rem;color:var(--muted)">${escHtml(v.location)}</div>
+              </div>
+              ${o ? `<span class="offer-active-badge ${o.active?'offer-badge-on':'offer-badge-off'}">${o.active?'● Active':'○ Inactive'}</span>` : ''}
+            </div>
+            ${o ? `
+              <div style="margin-bottom:12px">
+                <div style="font-weight:600;color:var(--dark);margin-bottom:4px">${escHtml(o.title)}</div>
+                <div style="font-size:0.84rem;color:var(--muted)">${escHtml(o.description||'')}</div>
+              </div>` : `<div style="color:var(--muted);font-size:0.84rem;margin-bottom:12px">No active offer for this venue.</div>`}
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn-sm btn-sm-success" onclick="openOfferForm('${v._id}','${escHtml(v.name)}',${JSON.stringify(o||null).replace(/"/g,'&quot;')})">
+                ${o ? '✏️ Edit Offer' : '➕ Add Offer'}
+              </button>
+              ${o ? `
+                <button class="btn-sm btn-sm-ghost" onclick="toggleOffer('${v._id}',${!o.active})">${o.active?'⏸ Deactivate':'▶ Activate'}</button>
+                <button class="btn-sm btn-sm-danger" onclick="deleteOffer('${v._id}')">🗑️ Remove</button>` : ''}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    container.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><h3>Failed to load offers</h3></div>`;
+  }
+}
 
+function openOfferForm(venueId, venueName, existingOffer) {
+  const o = typeof existingOffer === 'string' ? JSON.parse(existingOffer.replace(/&quot;/g,'"')) : existingOffer;
+  document.getElementById('receipt-content').innerHTML = `
+    <div style="padding:28px 32px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div style="font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:var(--dark)">${o?'Edit':'Add'} Offer — ${escHtml(venueName)}</div>
+        <button class="modal-close" onclick="closeModal('receipt-modal')">✕</button>
+      </div>
+      <div class="dash-form-field">
+        <label class="dash-label">Offer Title *</label>
+        <input class="dash-input" type="text" id="of-title" placeholder="e.g. 20% Off This Weekend!" value="${escHtml(o?.title||'')}" />
+      </div>
+      <div class="dash-form-field">
+        <label class="dash-label">Description</label>
+        <textarea class="dash-input" id="of-desc" style="height:80px;resize:vertical" placeholder="Describe the offer details…">${escHtml(o?.description||'')}</textarea>
+      </div>
+      <div class="dash-form-field">
+        <label class="dash-label">Banner Image</label>
+        <div class="img-upload-area" onclick="document.getElementById('of-img-input').click()">
+          <input type="file" id="of-img-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="previewOfferImg(this)" />
+          <div class="img-upload-icon">🖼️</div>
+          <div class="img-upload-text">${o?.image ? 'Click to replace banner' : 'Click to upload banner image'}</div>
+        </div>
+        <div id="of-img-preview" style="margin-top:10px">
+          ${o?.image ? `<img src="${imgUrl(o.image)}" style="width:100%;max-height:160px;object-fit:cover;border-radius:6px" />` : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="btn-submit" style="flex:1" onclick="saveOffer('${venueId}')">Save Offer →</button>
+        <button class="btn-ghost" onclick="closeModal('receipt-modal')">Cancel</button>
+      </div>
+    </div>`;
+  openModal('receipt-modal');
+}
+
+let offerImageFile = null;
+function previewOfferImg(input) {
+  offerImageFile = input.files[0];
+  if (!offerImageFile) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('of-img-preview').innerHTML = `<img src="${e.target.result}" style="width:100%;max-height:160px;object-fit:cover;border-radius:6px" />`;
+  };
+  reader.readAsDataURL(offerImageFile);
+}
+
+async function saveOffer(venueId) {
+  const title = document.getElementById('of-title').value.trim();
+  const description = document.getElementById('of-desc').value.trim();
+  if (!title) return toast('Offer title is required','error');
+  try {
+    const fd = new FormData();
+    fd.append('title', title);
+    fd.append('description', description);
+    if (offerImageFile) fd.append('offerImage', offerImageFile);
+    await api(`/venues/${venueId}/offer`, { method:'POST', formData: fd });
+    offerImageFile = null;
+    toast('Offer saved! 🎁','success');
+    closeModal('receipt-modal');
+    loadOffersPanel();
+    loadVenues();
+  } catch(e) { toast(e.error||'Failed to save offer','error'); }
+}
+
+async function toggleOffer(venueId, active) {
+  try {
+    await api(`/venues/${venueId}/offer`, { method:'POST', body:{ title:'_keep_', active } });
+    loadOffersPanel();
+    loadVenues();
+  } catch(e) { toast('Failed to update offer','error'); }
+}
+
+async function deleteOffer(venueId) {
+  if (!confirm('Remove this offer?')) return;
+  try {
+    await api(`/venues/${venueId}/offer`, { method:'DELETE' });
+    toast('Offer removed','info');
+    loadOffersPanel();
+    loadVenues();
+  } catch(e) { toast('Failed to remove offer','error'); }
+}
+
+// ─── OFFERS POPUP (shown on page load) ───────────────────────────────────────
+async function loadOffersPopup() {
+  try {
+    const venues = await api('/venues');
+    const withOffers = venues.filter(v => v.offer?.active && v.offer?.title);
+    if (!withOffers.length) return;
+
+    // Show one offer at a time, cycle through them
+    let idx = 0;
+    const show = () => {
+      const v = withOffers[idx];
+      const o = v.offer;
+      const existing = document.getElementById('offer-popup-overlay');
+      if (existing) existing.remove();
+      const overlay = document.createElement('div');
+      overlay.className = 'offer-popup-overlay';
+      overlay.id = 'offer-popup-overlay';
+      overlay.innerHTML = `
+        <div class="offer-popup">
+          ${o.image ? `<img class="offer-popup-img" src="${imgUrl(o.image)}" alt="offer banner" />` : ''}
+          <div class="offer-popup-body">
+            <div class="offer-popup-tag">🎁 Special Offer</div>
+            <div class="offer-popup-title">${escHtml(o.title)}</div>
+            <div class="offer-popup-venue">📍 ${escHtml(v.name)} · ${escHtml(v.location)}</div>
+            ${o.description ? `<div class="offer-popup-desc">${escHtml(o.description)}</div>` : ''}
+            <div class="offer-popup-actions">
+              <button class="btn-book" onclick="document.getElementById('offer-popup-overlay').remove();openBookingModal('${v._id}')">Book This Venue →</button>
+              ${withOffers.length > 1 ? `<button class="offer-popup-close" onclick="nextOffer(${idx},${withOffers.length})">Next Offer →</button>` : ''}
+              <button class="offer-popup-close" onclick="document.getElementById('offer-popup-overlay').remove()">✕ Close</button>
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+    };
+
+    // Show after 2 seconds
+    setTimeout(show, 2000);
+
+    window.nextOffer = (current, total) => {
+      idx = (current + 1) % total;
+      show();
+    };
+  } catch(e) { /* silently fail */ }
+}
 // ─── API HELPER ──────────────────────────────────────────
 async function api(path, {method='GET',body,formData}={}){
   const headers = {};

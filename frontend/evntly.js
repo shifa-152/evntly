@@ -685,6 +685,7 @@ function switchPanel(id, el) {
   if (id === 'my-reviews')   loadMyReviews();
   if (id === 'reports')      loadReports();
   if (id === 'my-plan')      loadMyPlan();
+  if (id === 'offers') loadOffersPanel();
 }
 
 // ─── VENUES — PUBLIC ──────────────────────────────────────────────
@@ -3327,6 +3328,7 @@ async function cpConfirm() {
   await loadVenues();
   loadReviews();
   loadShowcase();
-  loadOwnerPlans();   // load plan cards from API (with static fallback)
+  loadOwnerPlans(); 
+  loadOffersPopup();  // load plan cards from API (with static fallback)
   if (currentUser) showDashboard();
 })();
