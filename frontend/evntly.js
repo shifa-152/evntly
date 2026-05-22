@@ -3318,7 +3318,303 @@ async function cpConfirm() {
     if (btn) { btn.disabled = false; btn.textContent = 'Proceed \u2192'; }
   }
 }
+// ─── OFFERS PANEL (owner dashboard) ──────────────────────────────
+async function loadOffersPanel() {
+  const container = document.getElementById('offers-content');
+  if (!container) return;
+  container.innerHTML = '<p style="color:var(--muted);padding:32px;text-align:center">Loading offers…</p>';
 
+  /* ── Try to load existing offers ── */
+  let offers = [], venues = [];
+  try {
+    const stats = await api('/owner/stats');
+    venues = stats.venues || [];
+    offers = await api('/offers').catch(() => []);
+  } catch(e) {
+    offers = []; venues = [];
+  }
+
+  /* ── Filter to this owner's venues only ── */
+  const venueIds = new Set(venues.map(v => String(v._id)));
+  const myOffers = offers.filter(o => venueIds.has(String(o.venueId)));
+
+  /* ── Venue options for form ── */
+  const venueOptions = venues.map(v =>
+    `<option value="${v._id}">${escHtml(v.name)}</option>`).join('');
+
+  container.innerHTML = `
+    <style>
+      .offer-form-card{background:#fff;border:1px solid var(--border,#e5e5e5);border-radius:12px;padding:24px 28px;margin-bottom:28px;box-shadow:0 2px 14px rgba(0,0,0,0.04)}
+      .offer-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+      @media(max-width:600px){.offer-form-grid{grid-template-columns:1fr}}
+      .offer-list-card{background:#fff;border:1px solid var(--border,#e5e5e5);border-radius:10px;overflow:hidden;margin-bottom:14px;transition:box-shadow .15s}
+      .offer-list-card:hover{box-shadow:0 4px 18px rgba(0,0,0,0.07)}
+      .offer-list-img{width:100%;height:140px;object-fit:cover;background:var(--cream,#f9f5ee);display:block}
+      .offer-list-img-placeholder{width:100%;height:140px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;background:var(--cream,#f9f5ee)}
+      .offer-list-body{padding:14px 18px}
+      .offer-list-title{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;color:var(--dark);margin-bottom:2px}
+      .offer-list-venue{font-size:0.78rem;color:var(--muted);margin-bottom:8px}
+      .offer-list-desc{font-size:0.83rem;color:#555;line-height:1.55;margin-bottom:10px}
+      .offer-list-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+      .offer-meta-chip{font-size:0.73rem;font-weight:600;padding:3px 10px;border-radius:12px;background:var(--cream,#f9f5ee);color:var(--muted);border:1px solid var(--border,#e5e5e5)}
+      .offer-list-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+      .offer-toggle-wrap{display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--muted);font-weight:600}
+      .offer-toggle{position:relative;display:inline-block;width:42px;height:22px;cursor:pointer}
+      .offer-toggle input{display:none}
+      .offer-slider{position:absolute;inset:0;background:#d1c4b0;border-radius:22px;transition:.2s}
+      .offer-slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,0.18)}
+      .offer-toggle input:checked + .offer-slider{background:#22c55e}
+      .offer-toggle input:checked + .offer-slider:before{transform:translateX(20px)}
+      .offer-delete-btn{background:none;border:1px solid #fee2e2;color:#ef4444;border-radius:7px;padding:5px 13px;font-size:0.75rem;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
+      .offer-delete-btn:hover{background:#fee2e2}
+      .offers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:4px}
+      .offer-form-errors{display:none;background:#fee2e2;border:1px solid #fca5a5;border-radius:7px;padding:10px 14px;font-size:0.83rem;color:#991b1b;margin-bottom:14px}
+      .offer-form-errors.show{display:block}
+    </style>
+
+    <!-- ── Add Offer Form ── -->
+    <div class="offer-form-card">
+      <div style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;margin-bottom:16px;color:var(--dark)">🎁 Create New Offer</div>
+      <div class="offer-form-errors" id="offer-form-errors"></div>
+      <div class="offer-form-grid">
+        <div class="dash-form-field">
+          <label class="dash-label">Venue *</label>
+          <select class="dash-input" id="of-venue">
+            <option value="">— Select venue —</option>
+            ${venueOptions || '<option disabled>No venues yet</option>'}
+          </select>
+        </div>
+        <div class="dash-form-field">
+          <label class="dash-label">Offer Title *</label>
+          <input class="dash-input" type="text" id="of-title" placeholder="e.g. 20% Off Weekday Bookings" maxlength="80" />
+        </div>
+      </div>
+      <div class="dash-form-field">
+        <label class="dash-label">Description</label>
+        <textarea class="dash-input" id="of-desc" style="height:70px;resize:vertical" placeholder="Tell customers what's included, validity, T&C…"></textarea>
+      </div>
+      <div class="offer-form-grid">
+        <div class="dash-form-field">
+          <label class="dash-label">Discount Type *</label>
+          <select class="dash-input" id="of-dtype" onchange="toggleOfferDiscount()">
+            <option value="percent">Percentage Off (%)</option>
+            <option value="flat">Flat Amount Off (₹)</option>
+            <option value="free_amenity">Free Amenity / Add-on</option>
+            <option value="custom">Custom / Other</option>
+          </select>
+        </div>
+        <div class="dash-form-field" id="of-dval-wrap">
+          <label class="dash-label">Discount Value *</label>
+          <input class="dash-input" type="number" id="of-dval" placeholder="e.g. 20" min="0" />
+        </div>
+      </div>
+      <div class="offer-form-grid">
+        <div class="dash-form-field">
+          <label class="dash-label">Valid From</label>
+          <input class="dash-input" type="date" id="of-from" />
+        </div>
+        <div class="dash-form-field">
+          <label class="dash-label">Valid Till</label>
+          <input class="dash-input" type="date" id="of-till" />
+        </div>
+      </div>
+      <div class="dash-form-field">
+        <label class="dash-label">Offer Image <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+        <div class="img-upload-area" style="padding:14px" onclick="document.getElementById('of-img-input').click()">
+          <input type="file" id="of-img-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="previewOfferImg(event)" />
+          <div class="img-upload-icon" style="font-size:1.3rem">🖼️</div>
+          <div class="img-upload-text" style="font-size:0.78rem">Click to upload banner image</div>
+        </div>
+        <div id="of-img-preview" style="margin-top:8px"></div>
+      </div>
+      <button class="btn-submit" style="margin-top:4px;width:auto;padding:11px 30px" id="of-submit-btn" onclick="submitOffer()">Create Offer →</button>
+    </div>
+
+    <!-- ── Existing Offers ── -->
+    <div style="font-size:0.7rem;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px">
+      Active Offers (${myOffers.length})
+    </div>
+    <div class="offers-grid" id="offers-list-grid">
+      ${myOffers.length ? renderOfferCards(myOffers, venues) : '<div style="padding:32px;text-align:center;color:var(--muted);font-size:0.88rem;grid-column:1/-1">No offers yet. Create one above to attract more bookings!</div>'}
+    </div>
+  `;
+}
+
+function toggleOfferDiscount() {
+  const dtype = document.getElementById('of-dtype')?.value;
+  const wrap  = document.getElementById('of-dval-wrap');
+  if (!wrap) return;
+  if (dtype === 'free_amenity' || dtype === 'custom') {
+    wrap.style.display = 'none';
+  } else {
+    wrap.style.display = '';
+    document.getElementById('of-dval').placeholder =
+      dtype === 'percent' ? 'e.g. 20 (= 20% off)' : 'e.g. 1000 (= ₹1,000 off)';
+  }
+}
+
+let ofImgFile = null;
+function previewOfferImg(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  ofImgFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('of-img-preview').innerHTML = `
+      <div style="position:relative;display:inline-block">
+        <img src="${ev.target.result}" style="width:180px;height:110px;object-fit:cover;border-radius:7px;border:2px solid var(--gold)" />
+        <button onclick="ofImgFile=null;document.getElementById('of-img-preview').innerHTML='';document.getElementById('of-img-input').value=''"
+          style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#ef4444;color:#fff;border:none;cursor:pointer;font-size:0.7rem;font-weight:700">✕</button>
+      </div>`;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitOffer() {
+  const errBox = document.getElementById('offer-form-errors');
+  errBox.className = 'offer-form-errors';
+  const venueId = document.getElementById('of-venue')?.value;
+  const title   = document.getElementById('of-title')?.value.trim();
+  const desc    = document.getElementById('of-desc')?.value.trim();
+  const dtype   = document.getElementById('of-dtype')?.value;
+  const dval    = document.getElementById('of-dval')?.value;
+  const from    = document.getElementById('of-from')?.value;
+  const till    = document.getElementById('of-till')?.value;
+  const errs = [];
+  if (!venueId)    errs.push('Please select a venue');
+  if (!title)      errs.push('Offer title is required');
+  if (dtype !== 'free_amenity' && dtype !== 'custom' && (!dval || parseFloat(dval) <= 0))
+    errs.push('Please enter a discount value greater than 0');
+  if (dtype === 'percent' && parseFloat(dval) > 100)
+    errs.push('Percentage discount cannot exceed 100%');
+  if (from && till && from > till)
+    errs.push('"Valid From" must be before "Valid Till"');
+  if (errs.length) {
+    errBox.innerHTML = errs.map(e => `• ${e}`).join('<br>');
+    errBox.className = 'offer-form-errors show';
+    return;
+  }
+  const btn = document.getElementById('of-submit-btn');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    const fd = new FormData();
+    fd.append('venueId',       venueId);
+    fd.append('title',         title);
+    fd.append('description',   desc || '');
+    fd.append('discountType',  dtype);
+    fd.append('discountValue', dval || '0');
+    fd.append('validFrom',     from || '');
+    fd.append('validTill',     till || '');
+    fd.append('active',        'true');
+    if (ofImgFile) fd.append('image', ofImgFile);
+    await api('/offers', { method: 'POST', formData: fd });
+    toast('Offer created! 🎉', 'success');
+    ofImgFile = null;
+    await loadOffersPanel();
+  } catch(e) {
+    errBox.innerHTML = '❌ ' + escHtml(e.error || e.errors?.[0] || 'Failed to create offer');
+    errBox.className = 'offer-form-errors show';
+    btn.disabled = false; btn.textContent = 'Create Offer →';
+  }
+}
+
+function renderOfferCards(offers, venues) {
+  return offers.map(o => {
+    const venueName = venues.find(v => String(v._id) === String(o.venueId))?.name || o.venueName || '—';
+    const discLabel = o.discountType === 'percent'      ? `${o.discountValue}% Off`
+                    : o.discountType === 'flat'         ? `₹${Number(o.discountValue).toLocaleString('en-IN')} Off`
+                    : o.discountType === 'free_amenity' ? 'Free Add-on'
+                    : 'Special Offer';
+    const dateRange = (o.validFrom || o.validTill)
+      ? `📅 ${o.validFrom || '—'} → ${o.validTill || '—'}`
+      : '📅 No expiry set';
+    const imgHtml = o.image
+      ? `<img class="offer-list-img" src="${imgUrl(o.image)}" alt="${escHtml(o.title)}" onerror="this.style.display='none'" />`
+      : `<div class="offer-list-img-placeholder">🎁</div>`;
+    return `
+      <div class="offer-list-card" id="ocard-${o._id}">
+        ${imgHtml}
+        <div class="offer-list-body">
+          <div class="offer-list-title">${escHtml(o.title)}</div>
+          <div class="offer-list-venue">📍 ${escHtml(venueName)}</div>
+          ${o.description ? `<div class="offer-list-desc">${escHtml(o.description)}</div>` : ''}
+          <div class="offer-list-meta">
+            <span class="offer-meta-chip" style="background:rgba(200,169,110,0.12);color:#a07840;border-color:rgba(200,169,110,0.3)">🏷️ ${discLabel}</span>
+            <span class="offer-meta-chip">${dateRange}</span>
+          </div>
+          <div class="offer-list-footer">
+            <label class="offer-toggle-wrap">
+              <label class="offer-toggle">
+                <input type="checkbox" ${o.active ? 'checked' : ''} onchange="toggleOffer('${o._id}',this.checked)" />
+                <span class="offer-slider"></span>
+              </label>
+              <span id="offer-status-${o._id}">${o.active ? 'Active' : 'Paused'}</span>
+            </label>
+            <button class="offer-delete-btn" onclick="deleteOffer('${o._id}','${escHtml(o.title)}')">🗑️ Delete</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function toggleOffer(id, active) {
+  const label = document.getElementById('offer-status-' + id);
+  try {
+    await api('/offers/' + id, { method: 'PATCH', body: { active } });
+    if (label) label.textContent = active ? 'Active' : 'Paused';
+    toast(active ? 'Offer activated ✅' : 'Offer paused', active ? 'success' : 'info');
+  } catch(e) {
+    toast('Failed to update offer: ' + (e.error || ''), 'error');
+    if (label) label.textContent = active ? 'Paused' : 'Active'; // revert
+  }
+}
+
+async function deleteOffer(id, title) {
+  if (!confirm(`Delete offer "${title}"? This cannot be undone.`)) return;
+  try {
+    await api('/offers/' + id, { method: 'DELETE' });
+    toast('Offer deleted', 'info');
+    document.getElementById('ocard-' + id)?.remove();
+  } catch(e) {
+    toast('Delete failed: ' + (e.error || ''), 'error');
+  }
+}
+
+// ─── OFFERS POPUP (homepage — shown to visitors) ──────────────────
+async function loadOffersPopup() {
+  try {
+    const offers = await api('/offers?active=true').catch(() => []);
+    const active = offers.filter(o => o.active);
+    if (!active.length) return;
+    // Pick a random active offer with an image, else just the first
+    const withImg = active.filter(o => o.image);
+    const offer   = withImg.length ? withImg[Math.floor(Math.random() * withImg.length)] : active[0];
+    const discLabel = offer.discountType === 'percent'      ? `${offer.discountValue}% Off`
+                    : offer.discountType === 'flat'         ? `₹${Number(offer.discountValue||0).toLocaleString('en-IN')} Off`
+                    : offer.discountType === 'free_amenity' ? 'Free Add-on'
+                    : 'Special Offer';
+    const overlay = document.createElement('div');
+    overlay.className = 'offer-popup-overlay';
+    overlay.id = 'offer-popup-overlay';
+    overlay.innerHTML = `
+      <div class="offer-popup">
+        ${offer.image ? `<img class="offer-popup-img" src="${imgUrl(offer.image)}" alt="${escHtml(offer.title)}" onerror="this.style.display='none'" />` : ''}
+        <div class="offer-popup-body">
+          <div class="offer-popup-tag">🎁 Limited Offer · ${discLabel}</div>
+          <div class="offer-popup-title">${escHtml(offer.title)}</div>
+          <div class="offer-popup-venue">📍 ${escHtml(offer.venueName || 'EVNTLY Venue')}</div>
+          ${offer.description ? `<div class="offer-popup-desc">${escHtml(offer.description)}</div>` : ''}
+          <div class="offer-popup-actions">
+            <button class="btn-cta" style="padding:9px 22px;font-size:0.88rem" onclick="document.getElementById('offer-popup-overlay').remove();scrollToVenues()">Browse Venues →</button>
+            <button class="offer-popup-close" onclick="document.getElementById('offer-popup-overlay').remove()">Not now</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    // Auto-dismiss after 12 seconds
+    setTimeout(() => overlay.remove(), 12000);
+  } catch(e) { /* silently skip */ }
+}
 // ─── INIT ─────────────────────────────────────────────────────────
 (async () => {
   const searchDate = document.getElementById('search-date');
