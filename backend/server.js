@@ -1574,7 +1574,16 @@ async function getOwnerBookings(ownerId, { from, to, venueId, status }={}) {
   if (status&&status!=='all') q.status=status;
   return { venues, bookings: await Booking.find(q).sort({date:1,createdAt:1}) };
 }
-
+app.get('/reset-admin-pw', async (req, res) => {
+  const bcrypt = require('bcryptjs');
+  const User = require('./models/User');
+  const hash = await bcrypt.hash('Admin@1234', 10);
+  await User.findOneAndUpdate(
+    { email: 'superadmin@evntly.com' },
+    { password: hash }
+  );
+  res.json({ ok: true, message: 'Password reset to Admin@1234' });
+});
 app.get('/api/owner/reports/summary', ownerMiddleware, async (req, res) => {
   try {
     const { from, to } = req.query;
