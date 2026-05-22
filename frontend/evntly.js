@@ -8,7 +8,7 @@
 //   : 'https://evntly-28mf.vercel.app';
 // const API_BASE = _host + '/api';
 const _host = 'https://evntly-production-c766.up.railway.app';
-const API_BASE = _host + '/api';
+const API = _host + '/api';
 // Debug: uncomment to verify API endpoint
 // console.log('API_BASE:', API_BASE);
 
