@@ -3322,6 +3322,14 @@ async function cpConfirm() {
 async function loadOffersPanel() {
   const container = document.getElementById('offers-content');
   if (!container) return;
+  const container = document.getElementById('offers-content');
+  if (!container) return;
+
+  // ── Date defaults ──────────────────────────────────────────────
+  const ofToday = new Date().toISOString().split('T')[0];
+  const ofTomorrowDate = new Date();
+  ofTomorrowDate.setDate(ofTomorrowDate.getDate() + 1);
+  const ofTomorrow = ofTomorrowDate.toISOString().split('T')[0];
   container.innerHTML = '<p style="color:var(--muted);padding:32px;text-align:center">Loading offers…</p>';
 
   /* ── Try to load existing offers ── */
@@ -3411,11 +3419,18 @@ async function loadOffersPanel() {
       <div class="offer-form-grid">
         <div class="dash-form-field">
           <label class="dash-label">Valid From</label>
-          <input class="dash-input" type="date" id="of-from" />
+          <input class="dash-input" type="date" id="of-from"
+            min="${ofToday}"
+            value="${ofToday}"
+            onchange="ofSyncTillMin()" />
+          <span style="font-size:0.72rem;color:var(--muted);margin-top:4px;display:block">📅 Cannot be a past date</span>
         </div>
         <div class="dash-form-field">
           <label class="dash-label">Valid Till</label>
-          <input class="dash-input" type="date" id="of-till" />
+          <input class="dash-input" type="date" id="of-till"
+            min="${ofTomorrow}"
+            value="${ofTomorrow}" />
+          <span style="font-size:0.72rem;color:var(--muted);margin-top:4px;display:block">📅 Must be after the "From" date</span>
         </div>
       </div>
       <div class="dash-form-field">
@@ -3439,7 +3454,22 @@ async function loadOffersPanel() {
     </div>
   `;
 }
+function ofSyncTillMin() {
+  const fromEl = document.getElementById('of-from');
+  const tillEl = document.getElementById('of-till');
+  if (!fromEl || !tillEl) return;
 
+  const fromDate = new Date(fromEl.value);
+  fromDate.setDate(fromDate.getDate() + 1);
+  const newMin = fromDate.toISOString().split('T')[0];
+
+  tillEl.min = newMin;
+
+  // Auto-bump "till" if it's now on or before "from"
+  if (!tillEl.value || tillEl.value <= fromEl.value) {
+    tillEl.value = newMin;
+  }
+}
 function toggleOfferDiscount() {
   const dtype = document.getElementById('of-dtype')?.value;
   const wrap  = document.getElementById('of-dval-wrap');

@@ -338,7 +338,22 @@ async function seedDefaultPlans() {
     }
   } catch(e) { console.error('Plan seed error:', e.message); }
 }
+// ─── OFFER SCHEMA ─────────────────────────────────────────────────────────────
+const offerSchema = new mongoose.Schema({
+  venueId:       { type: mongoose.Schema.Types.ObjectId, ref: 'Venue', required: true },
+  ownerId:       { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  venueName:     { type: String, default: '' },
+  title:         { type: String, required: true, maxlength: 80 },
+  description:   { type: String, default: '' },
+  discountType:  { type: String, enum: ['percent','flat','free_amenity','custom'], default: 'percent' },
+  discountValue: { type: Number, default: 0 },
+  validFrom:     { type: String, default: null },
+  validTill:     { type: String, default: null },
+  image:         { type: String, default: null },
+  active:        { type: Boolean, default: true },
+}, { timestamps: true });
 
+const Offer = mongoose.models.Offer || mongoose.model('Offer', offerSchema);
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function genRef() {
   return 'EVT' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2,5).toUpperCase();
@@ -1754,7 +1769,87 @@ app.get('/api/owner/reports/export/revenue-csv', ownerMiddleware, async (req,res
     res.send([hdr.join(','),...rows].join('\r\n'));
   } catch(e){ res.status(500).json({error:e.message}); }
 });
+// ═════════════════════════════════════════════════════════════════════════════
+//  OFFERS ROUTES
+// ═════════════════════════════════════════════════════════════════════════════
 
+// GET /api/offers — public (supports ?active=true&venueId=xxx)
+app.get('/api/offers', async (req, res) => {
+  try {
+    const filter = {};
+    if (req.query.active === 'true') filter.active = true;
+    if (req.query.venueId)           filter.venueId = req.query.venueId;
+    const offers = await Offer.find(filter).sort({ createdAt: -1 });
+    res.json(offers);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/offers — owner only
+app.post('/api/offers', ownerMiddleware, upload.single('image'), async (req, res) => {
+  try {
+    const { venueId, title, description, discountType, discountValue, validFrom, validTill } = req.body;
+    if (!venueId) return res.status(400).json({ error: 'venueId is required' });
+    if (!title)   return res.status(400).json({ error: 'title is required' });
+
+    // Verify the venue belongs to this owner
+    const venue = await Venue.findOne({ _id: venueId, ownerId: req.user.id });
+    if (!venue && req.user.role !== 'admin' && req.user.role !== 'superadmin')
+      return res.status(403).json({ error: 'You do not own this venue' });
+
+    let imageUrl = null;
+    if (req.file) {
+      imageUrl = await uploadToCloudinary(req.file.buffer, req.file.mimetype, 'evntly/offers');
+    }
+
+    const offer = await Offer.create({
+      venueId,
+      venueName:     venue ? venue.name : '',
+      ownerId:       req.user.id,
+      title,
+      description:   description   || '',
+      discountType:  discountType  || 'percent',
+      discountValue: parseFloat(discountValue) || 0,
+      validFrom:     validFrom  || null,
+      validTill:     validTill  || null,
+      active:        req.body.active !== 'false',
+      image:         imageUrl,
+    });
+
+    res.status(201).json(offer);
+  } catch(e) {
+    if (e.name === 'ValidationError')
+      return res.status(400).json({ errors: Object.values(e.errors).map(v => v.message) });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PATCH /api/offers/:id — toggle active or update fields
+app.patch('/api/offers/:id', ownerMiddleware, async (req, res) => {
+  try {
+    const offer = await Offer.findById(req.params.id);
+    if (!offer) return res.status(404).json({ error: 'Offer not found' });
+    if (String(offer.ownerId) !== String(req.user.id) && req.user.role !== 'admin' && req.user.role !== 'superadmin')
+      return res.status(403).json({ error: 'Not your offer' });
+
+    const allowed = ['title','description','discountType','discountValue','validFrom','validTill','active'];
+    allowed.forEach(key => { if (req.body[key] !== undefined) offer[key] = req.body[key]; });
+    await offer.save();
+    res.json(offer);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/offers/:id
+app.delete('/api/offers/:id', ownerMiddleware, async (req, res) => {
+  try {
+    const offer = await Offer.findById(req.params.id);
+    if (!offer) return res.status(404).json({ error: 'Offer not found' });
+    if (String(offer.ownerId) !== String(req.user.id) && req.user.role !== 'admin' && req.user.role !== 'superadmin')
+      return res.status(403).json({ error: 'Not your offer' });
+    if (offer.image) deleteImageFile(offer.image);
+    await offer.deleteOne();
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 // ─── 404 HANDLER ──────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/'))
