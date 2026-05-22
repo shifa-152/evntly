@@ -1784,8 +1784,6 @@ app.use((err, req, res, next) => {
 });
 
 // For local development only
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => console.log(`🚀 EVNTLY running on http://localhost:${PORT}`));
-}
+app.listen(PORT, () => console.log(`🚀 EVNTLY running on port ${PORT}`));
 
 module.exports = app;
